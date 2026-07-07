@@ -1,103 +1,96 @@
-/* 1. Algemene Reset & Basisinstellingen */
-* { 
-    margin: 0; 
-    padding: 0; 
-    box-sizing: border-box; 
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+/* Algemene instellingen */
+body {
+    background-color: #121212; /* Donkere gaming-stijl achtergrond */
+    color: white;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    margin: 0;
+    text-align: center;
 }
 
-/* Achtergrondkleur ingesteld op puur zwart, passend bij de banner */
-body { 
-    background-color: #000000; 
-    color: #ffffff; 
-    overflow-x: hidden;
-}
-
-/* 2. Navigatiebalk Styling (Gecentreerd zoals in het voorbeeld) */
-header {
-    width: 100%;
-    background: rgba(0, 0, 0, 0.9);
-    position: fixed;
-    top: 0;
-    left: 0;
-    z-index: 1000;
-    border-bottom: 1px solid rgba(0, 210, 255, 0.2);
-}
-
+/* Navigatiebalk */
 .navbar {
     display: flex;
     justify-content: center;
-    gap: 40px;
-    padding: 25px 20px;
+    padding: 20px;
+    background-color: #1f1f1f;
 }
 
-.navbar a {
-    color: #00d2ff; /* Elektrisch neon blauw */
+.navbar a, .dropbtn {
+    color: white;
+    padding: 14px 20px;
     text-decoration: none;
-    font-weight: bold;
-    font-size: 16px;
-    letter-spacing: 2px;
-    transition: color 0.3s, text-shadow 0.3s;
-}
-
-/* Subtiele gloed wanneer je over de menu-links beweegt */
-.navbar a:hover {
-    color: #ffffff;
-    text-shadow: 0 0 10px #00d2ff;
-}
-
-/* 3. Hero / Midden Sectie Styling */
-.hero {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    min-height: 100vh;
-    text-align: center;
-    padding: 120px 20px 40px 20px;
-    background: radial-gradient(circle, rgba(0,102,255,0.1) 0%, rgba(0,0,0,1) 70%);
-}
-
-.content {
-    max-width: 1100px;
-    width: 100%;
-}
-
-/* Responsieve banner met een blauwe gloed rondom */
-.banner-img {
-    max-width: 100%;
-    height: auto;
-    margin-bottom: 25px;
-    border-radius: 4px;
-    box-shadow: 0 0 30px rgba(0, 102, 255, 0.3);
-}
-
-/* Slogan tekst styling */
-.slogan {
     font-size: 18px;
-    font-weight: 600;
-    color: #00d2ff;
-    margin-bottom: 35px;
-    letter-spacing: 3px;
-    text-shadow: 0 0 8px rgba(0, 210, 255, 0.5);
+    font-weight: bold;
+    border: none;
+    background: none;
+    cursor: pointer;
 }
 
-/* 4. Discord Actieknop met Verloop en Gloed-effect */
-.discord-btn {
+.navbar a:hover, .dropbtn:hover {
+    color: #00d4ff; /* Accentkleur bij hover */
+}
+
+/* Dropdown Menu voor Games */
+.dropdown {
+    position: relative;
     display: inline-block;
-    padding: 16px 45px;
-    background: linear-gradient(45deg, #0066ff, #00d2ff);
-    color: #ffffff;
+}
+
+.dropdown-content {
+    display: none;
+    position: absolute;
+    background-color: #2a2a2a;
+    min-width: 160px;
+    box-shadow: 0px 8px 16px rgba(0,0,0,0.5);
+    z-index: 1;
+}
+
+.dropdown-content a {
+    color: white;
+    padding: 12px 16px;
+    text-decoration: none;
+    display: block;
+    text-align: left;
+}
+
+.dropdown-content a:hover {
+    background-color: #444;
+}
+
+.dropdown:hover .dropdown-content {
+    display: block;
+}
+
+/* Hero Sectie en Banner */
+.hero {
+    padding: 50px 20px;
+}
+
+.banner-img {
+    max-width: 80%; /* Zorgt dat de banner niet te groot wordt */
+    height: auto;
+    border-radius: 10px;
+    margin-bottom: 20px;
+}
+
+.slogan {
+    font-size: 24px;
+    font-style: italic;
+    margin-bottom: 30px;
+    color: #00d4ff;
+}
+
+/* Discord Knop */
+.discord-btn {
+    background-color: #7289da; /* Discord kleur */
+    color: white;
+    padding: 15px 30px;
     text-decoration: none;
     font-weight: bold;
-    font-size: 16px;
-    letter-spacing: 1px;
     border-radius: 5px;
-    box-shadow: 0 0 25px rgba(0, 102, 255, 0.6);
-    transition: transform 0.2s, box-shadow 0.2s;
+    font-size: 20px;
 }
 
-/* Knop beweegt iets omhoog en gloeit feller bij hover */
 .discord-btn:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 0 35px rgba(0, 210, 255, 0.9);
+    background-color: #5b6eae;
 }
