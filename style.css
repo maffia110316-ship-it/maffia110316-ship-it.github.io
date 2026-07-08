@@ -80,15 +80,15 @@ h1 {
 /* ==========================================================================
    4. Games Pagina Specifieke Structuur
    ========================================================================== */
-.games-list {
+.games-list, .team-list {
     display: flex;
-    flex-direction: column; /* Zet de games onder elkaar */
+    flex-direction: column; /* Zet de kaarten netjes onder elkaar */
     align-items: center;
     gap: 20px;
     margin-top: 30px;
 }
 
-.game-card {
+.game-card, .team-card {
     background-color: #1f1f1f;
     padding: 25px 40px;
     border-radius: 8px;
@@ -99,10 +99,42 @@ h1 {
     transition: 0.3s ease-in-out;
 }
 
-/* Animatie-effect wanneer je over een game-knop hovert */
-.game-card:hover {
-    background-color: #00d4ff;
-    color: #121212;
-    transform: scale(1.05); /* Maakt de knop subtiel groter */
-    cursor: pointer;
+.game-card:hover, .team-card:hover {
+    transform: scale(1.03);
+}
+
+/* ==========================================================================
+   5. Team Pagina Rollen & Kleuren (Custom Styling)
+   ========================================================================== */
+.role-title {
+    display: block;
+    font-size: 14px;
+    letter-spacing: 2px;
+    margin-bottom: 10px;
+}
+
+/* De Leader krijgt een gouden tint */
+.leader-card {
+    border-color: #ffd700;
+}
+.leader-card .role-title {
+    color: #ffd700;
+}
+
+/* De Co-Leader krijgt een zilveren tint */
+.co-leader-card {
+    border-color: #c0c0c0;
+}
+.co-leader-card .role-title {
+    color: #c0c0c0;
+}
+
+/* De Admins behouden de blauwe clan kleur */
+.admin-card .role-title {
+    color: #00d4ff;
+}
+
+.member-name {
+    margin: 5px 0;
+    font-size: 24px;
 }
