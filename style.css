@@ -1,5 +1,5 @@
 /* ==========================================================================
-   1. Strikte Mobiele Reset (Voorkomt horizontaal schuiven)
+   1. Strikte Mobiele Reset
    ========================================================================== */
 *, *::before, *::after {
     box-sizing: border-box;
@@ -8,9 +8,9 @@
 html, body {
     margin: 0;
     padding: 0;
-    width: 100vw;
+    width: 100%;
     max-width: 100%;
-    overflow-x: hidden; /* Blokkeert horizontaal schuiven volledig */
+    overflow-x: hidden; /* Blokkeert horizontaal schuiven */
     background-color: #121212;
     color: #ffffff;
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -18,14 +18,14 @@ html, body {
 }
 
 h1 {
-    font-size: 24px;
-    margin-bottom: 12px;
+    font-size: 22px;
+    margin-bottom: 10px;
     color: #ffffff;
     word-wrap: break-word;
 }
 
 .slogan {
-    font-size: 15px;
+    font-size: 14px;
     color: #00d4ff;
     font-style: italic;
     margin-bottom: 20px;
@@ -51,11 +51,6 @@ h1 {
     text-decoration: none;
     font-size: 14px;
     font-weight: bold;
-    transition: 0.3s;
-}
-
-.navbar a:hover {
-    color: #00d4ff;
 }
 
 .navbar .nav-join-btn {
@@ -63,40 +58,35 @@ h1 {
     color: #121212;
     border-radius: 6px;
     padding: 8px 16px;
-    width: 90%; /* Zorgt dat de knop op mobiel een mooie eigen regel krijgt */
+    width: 90%;
     margin-top: 4px;
     display: block;
     box-shadow: 0 0 10px rgba(0, 212, 255, 0.4);
 }
 
-.navbar .nav-join-btn:hover {
-    background-color: #ffffff;
-    color: #121212;
-}
-
 /* ==========================================================================
-   3. Banner Sectie
+   3. Banner
    ========================================================================== */
 .banner-container {
     width: 100%;
     max-width: 500px;
-    margin: 12px auto 5px auto;
-    padding: 0 10px;
+    margin: 10px auto;
+    padding: 0 12px;
 }
 
 .clan-banner {
     width: 100%;
-    height: auto; /* Zorgt dat de afbeelding nooit vervormt */
+    height: auto;
     border-radius: 8px;
     box-shadow: 0 0 12px rgba(0, 212, 255, 0.3);
     display: block;
 }
 
 /* ==========================================================================
-   4. Inhoud & Kaarten
+   4. Inhoud & Containers
    ========================================================================== */
 .hero {
-    padding: 10px;
+    padding: 10px 0;
     width: 100%;
     display: flex;
     justify-content: center;
@@ -105,17 +95,17 @@ h1 {
 .content {
     width: 100%;
     max-width: 500px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    padding: 0 5px;
+    padding: 0 12px; /* Zorgt voor afstand tot het scherm */
 }
 
+/* ==========================================================================
+   5. Kaarten (Home, Games & Team)
+   ========================================================================== */
 .r6s-card {
     background-color: #1f1f1f;
     border: 2px solid #00d4ff;
     border-radius: 10px;
-    padding: 16px;
+    padding: 15px;
     width: 100%;
     text-align: left;
     box-shadow: 0 0 15px rgba(0, 212, 255, 0.2);
@@ -124,12 +114,12 @@ h1 {
 .r6s-card h1 {
     color: #00d4ff;
     text-align: center;
-    font-size: 19px;
+    font-size: 18px;
 }
 
 .r6s-description {
     font-size: 14px;
-    line-height: 1.5;
+    line-height: 1.4;
     color: #dddddd;
 }
 
@@ -146,30 +136,27 @@ h1 {
 }
 
 .r6s-callout {
-    font-size: 15px;
+    font-size: 14px;
     font-weight: bold;
     color: #ffffff;
     text-align: center;
     margin-top: 15px;
 }
 
-/* ==========================================================================
-   5. Games & Team Lijsten
-   ========================================================================== */
 .games-list, .team-list {
     display: flex;
     flex-direction: column;
     align-items: center;
     gap: 12px;
     width: 100%;
-    margin-top: 10px;
 }
 
 .game-card, .team-card {
     background-color: #1f1f1f;
     padding: 14px;
     border-radius: 8px;
-    width: 100%;
+    width: 100%; /* Past precies in het scherm */
+    box-sizing: border-box;
     border: 2px solid #00d4ff;
 }
 
@@ -192,6 +179,6 @@ h1 {
 
 .member-name {
     margin: 4px 0;
-    font-size: 17px;
+    font-size: 16px;
     font-weight: bold;
 }
