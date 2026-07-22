@@ -10,7 +10,7 @@ html, body {
     padding: 0;
     width: 100%;
     max-width: 100%;
-    overflow-x: hidden;
+    overflow-x: hidden; /* Blokkeert horizontaal schuiven op mobiel */
     background-color: #121212;
     color: #ffffff;
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -192,7 +192,7 @@ h1 {
     }
 
     .navbar .nav-join-btn {
-        width: auto; /* Knop krijgt normale breedte */
+        width: auto;
         margin-top: 0;
         padding: 10px 24px;
     }
@@ -203,7 +203,7 @@ h1 {
         margin: 20px auto;
     }
 
-    /* Bredere content-container */
+    /* Bredere content-container op PC */
     .content {
         max-width: 950px;
         padding: 0 20px;
@@ -218,7 +218,7 @@ h1 {
         font-size: 18px;
     }
 
-    /* Homekaart groter en ruimtelijker */
+    /* Homekaart ruimtelijker op PC */
     .r6s-card {
         padding: 30px;
     }
@@ -234,9 +234,9 @@ h1 {
     /* Games & Team op PC: 3 kolommen strak naast elkaar */
     .games-list, .team-list {
         display: grid;
-        grid-template-columns: repeat(3, 1fr); /* 3 gelijke kolommen */
+        grid-template-columns: repeat(3, 1fr);
         gap: 20px;
-        align-items: stretch; /* Zorgt dat alle kaders even hoog worden */
+        align-items: stretch;
     }
 
     .game-card, .team-card {
