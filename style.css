@@ -1,5 +1,5 @@
 /* ==========================================================================
-   1. Strikte Mobiele Reset
+   1. Mobiele Basis-stijlen (Standaard voor telefoons)
    ========================================================================== */
 *, *::before, *::after {
     box-sizing: border-box;
@@ -10,7 +10,7 @@ html, body {
     padding: 0;
     width: 100%;
     max-width: 100%;
-    overflow-x: hidden; /* Blokkeert horizontaal schuiven */
+    overflow-x: hidden;
     background-color: #121212;
     color: #ffffff;
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -31,9 +31,7 @@ h1 {
     margin-bottom: 20px;
 }
 
-/* ==========================================================================
-   2. Navigatiebalk
-   ========================================================================== */
+/* Navigatiebalk (Mobiel) */
 .navbar {
     display: flex;
     justify-content: center;
@@ -64,9 +62,7 @@ h1 {
     box-shadow: 0 0 10px rgba(0, 212, 255, 0.4);
 }
 
-/* ==========================================================================
-   3. Banner
-   ========================================================================== */
+/* Banner (Mobiel) */
 .banner-container {
     width: 100%;
     max-width: 500px;
@@ -82,9 +78,7 @@ h1 {
     display: block;
 }
 
-/* ==========================================================================
-   4. Inhoud & Containers
-   ========================================================================== */
+/* Content Containers (Mobiel) */
 .hero {
     padding: 10px 0;
     width: 100%;
@@ -95,12 +89,10 @@ h1 {
 .content {
     width: 100%;
     max-width: 500px;
-    padding: 0 12px; /* Zorgt voor afstand tot het scherm */
+    padding: 0 12px;
 }
 
-/* ==========================================================================
-   5. Kaarten (Home, Games & Team)
-   ========================================================================== */
+/* Kaarten (Mobiel) */
 .r6s-card {
     background-color: #1f1f1f;
     border: 2px solid #00d4ff;
@@ -155,7 +147,7 @@ h1 {
     background-color: #1f1f1f;
     padding: 14px;
     border-radius: 8px;
-    width: 100%; /* Past precies in het scherm */
+    width: 100%;
     box-sizing: border-box;
     border: 2px solid #00d4ff;
 }
@@ -181,4 +173,80 @@ h1 {
     margin: 4px 0;
     font-size: 16px;
     font-weight: bold;
+}
+
+/* ==========================================================================
+   2. PC & Laptop Stijlen (Wordt geactiveerd op schermen breder dan 768px)
+   ========================================================================== */
+@media (min-width: 769px) {
+
+    /* Navigatie op PC: Alles op 1 strakke horizontale regel */
+    .navbar {
+        padding: 15px 40px;
+        gap: 30px;
+        flex-wrap: nowrap;
+    }
+
+    .navbar a {
+        font-size: 16px;
+    }
+
+    .navbar .nav-join-btn {
+        width: auto; /* Knop krijgt normale breedte */
+        margin-top: 0;
+        padding: 10px 24px;
+    }
+
+    /* Grotere banner op PC */
+    .banner-container {
+        max-width: 950px;
+        margin: 20px auto;
+    }
+
+    /* Bredere content-container */
+    .content {
+        max-width: 950px;
+        padding: 0 20px;
+    }
+
+    /* Titels groter op PC */
+    h1 {
+        font-size: 30px;
+    }
+
+    .slogan {
+        font-size: 18px;
+    }
+
+    /* Homekaart groter en ruimtelijker */
+    .r6s-card {
+        padding: 30px;
+    }
+
+    .r6s-card h1 {
+        font-size: 26px;
+    }
+
+    .r6s-description, .r6s-list li, .r6s-callout {
+        font-size: 17px;
+    }
+
+    /* Games & Team op PC: 3 kolommen strak naast elkaar */
+    .games-list, .team-list {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr); /* 3 gelijke kolommen */
+        gap: 20px;
+        align-items: stretch; /* Zorgt dat alle kaders even hoog worden */
+    }
+
+    .game-card, .team-card {
+        padding: 25px 15px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+    }
+
+    .member-name {
+        font-size: 18px;
+    }
 }
