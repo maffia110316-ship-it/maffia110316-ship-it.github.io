@@ -10,24 +10,26 @@ body {
 }
 
 h1 {
-    font-size: 28px;
+    font-size: 32px;
     margin-bottom: 15px;
-    color: #00d4ff;
+    color: #ffffff;
 }
 
 /* ==========================================================================
-   2. Navigatiebalk (Navbar)
+   2. Navigatiebalk (Navbar) met JOIN CLAN knop
    ========================================================================== */
 .navbar {
     display: flex;
     justify-content: center;
-    padding: 20px;
+    align-items: center;
+    padding: 15px 20px;
     background-color: #1f1f1f;
+    gap: 15px;
 }
 
 .navbar a {
     color: white;
-    padding: 14px 20px;
+    padding: 10px 18px;
     text-decoration: none;
     font-size: 18px;
     font-weight: bold;
@@ -38,49 +40,30 @@ h1 {
     color: #00d4ff;
 }
 
+/* Specifieke stijl voor de JOIN CLAN knop in het menu */
+.navbar .nav-join-btn {
+    background-color: #00d4ff;
+    color: #121212;
+    border-radius: 6px;
+    padding: 10px 20px;
+    box-shadow: 0 0 10px rgba(0, 212, 255, 0.4);
+}
+
+.navbar .nav-join-btn:hover {
+    background-color: #ffffff;
+    color: #121212;
+    transform: scale(1.05);
+}
+
 /* ==========================================================================
-   3. Hero Sectie & Bovenste Join Knop (met Logo)
+   3. Startscherm / Welkom
    ========================================================================== */
 .hero {
-    padding: 30px 20px;
+    padding: 40px 20px;
     display: flex;
     justify-content: center;
 }
 
-/* De opvallende bovenste knop met logo */
-.top-join-btn {
-    background-color: #00d4ff;
-    color: #121212;
-    padding: 12px 28px;
-    text-decoration: none;
-    font-weight: bold;
-    border-radius: 8px;
-    font-size: 22px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 12px;
-    margin-bottom: 25px;
-    transition: 0.3s ease;
-    box-shadow: 0 4px 15px rgba(0, 212, 255, 0.4);
-}
-
-.top-join-btn:hover {
-    background-color: #ffffff;
-    transform: scale(1.05);
-}
-
-/* Afmetingen van het logo binnen de knop */
-.btn-logo {
-    width: 35px;
-    height: 35px;
-    object-fit: contain;
-    border-radius: 50%; /* Maakt het logo subtiel rond */
-}
-
-/* ==========================================================================
-   4. Startscherm Welkomstkaart
-   ========================================================================== */
 .r6s-card {
     background-color: #1f1f1f;
     border: 2px solid #00d4ff;
@@ -90,6 +73,11 @@ h1 {
     width: 100%;
     text-align: left;
     box-shadow: 0 0 20px rgba(0, 212, 255, 0.25);
+}
+
+.r6s-card h1 {
+    color: #00d4ff;
+    text-align: center;
 }
 
 .r6s-description {
@@ -115,32 +103,13 @@ h1 {
     font-weight: bold;
     color: #ffffff;
     text-align: center;
-    margin: 30px 0 20px 0;
-}
-
-.join-btn {
-    background-color: #7289da; /* Discord Paars-Blauw */
-    color: #ffffff;
-    padding: 14px 28px;
-    text-decoration: none;
-    font-weight: bold;
-    border-radius: 8px;
-    font-size: 20px;
-    display: block;
-    width: fit-content;
-    margin: 0 auto;
-    transition: 0.3s ease;
-}
-
-.join-btn:hover {
-    background-color: #5b6eae;
-    transform: scale(1.05);
+    margin-top: 25px;
 }
 
 /* ==========================================================================
-   5. Games & Team Pagina Structuur
+   4. Team Pagina Structuur & Gekleurde Randen
    ========================================================================== */
-.games-list, .team-list {
+.team-list {
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -148,29 +117,28 @@ h1 {
     margin-top: 30px;
 }
 
-.game-card, .team-card {
+.team-card {
     background-color: #1f1f1f;
-    padding: 25px 40px;
+    padding: 20px 30px;
     border-radius: 8px;
-    font-size: 22px;
-    font-weight: bold;
-    width: 320px;
+    width: 300px;
     border: 2px solid #00d4ff;
     transition: 0.3s ease-in-out;
 }
 
-.game-card:hover, .team-card:hover {
+.team-card:hover {
     transform: scale(1.03);
 }
 
-/* Team Rollen & Kleuren */
 .role-title {
     display: block;
     font-size: 14px;
     letter-spacing: 2px;
-    margin-bottom: 10px;
+    font-weight: bold;
+    margin-bottom: 8px;
 }
 
+/* Specifieke rollen & gekleurde randen */
 .leader-card { border-color: #a020f0; }
 .leader-card .role-title { color: #a020f0; }
 
@@ -182,5 +150,6 @@ h1 {
 
 .member-name {
     margin: 5px 0;
-    font-size: 24px;
+    font-size: 22px;
+    font-weight: bold;
 }
