@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="nl" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>GamerHub Ultra</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+      body {
+        user-select: none;
+        -webkit-user-select: none;
+        background-color: #0f172a;
+        color: #f8fafc;
+        overflow: hidden;
+      }
+      ::-webkit-scrollbar {
+        width: 6px;
+        height: 6px;
+      }
+      ::-webkit-scrollbar-track {
+        background: #1e1f22;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: #4e5058;
+        border-radius: 3px;
+      }
+    </style>
+  </head>
+  <body class="h-screen w-screen bg-slate-950 text-slate-100 antialiased overflow-hidden">
+    <div id="root" class="h-full w-full"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>
