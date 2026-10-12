@@ -43,7 +43,7 @@ const IconBan = () => (
   </svg>
 );
 
-// --- STANDAARD GEGEVENS VOOR NIEUWE ACCOUNTS ---
+// --- STANDAARD MOCK DATA ---
 const DEFAULT_SERVERS = [
   {
     id: 's_default_1',
@@ -89,18 +89,16 @@ const DEFAULT_CONNECTIONS = [
 ];
 
 export default function App() {
-  // GEBRUIKERS BEHEREN IN LOCALSTORAGE
   const [registeredUsers, setRegisteredUsers] = useState(() => {
-    const saved = localStorage.getItem('gh_reg_users_v2');
+    const saved = localStorage.getItem('gh_reg_users_v3');
     return saved ? JSON.parse(saved) : [];
   });
 
   const [activeUser, setActiveUser] = useState(() => {
-    const saved = localStorage.getItem('gh_active_user_v2');
+    const saved = localStorage.getItem('gh_active_user_v3');
     return saved ? JSON.parse(saved) : null;
   });
 
-  // INLOGGEN / REGISTRATIE STATE
   const [authMode, setAuthMode] = useState('login');
   const [authError, setAuthError] = useState('');
   const [loginIdentifier, setLoginIdentifier] = useState('');
@@ -115,27 +113,22 @@ export default function App() {
   const [generatedOtp, setGeneratedOtp] = useState('');
   const [inputOtp, setInputOtp] = useState('');
 
-  // NAVIGATIE & INTERFACE STATE
   const [activeTab, setActiveTab] = useState('dashboard');
   const [smsBackup, setSmsBackup] = useState(true);
   const [selectedPlatform, setSelectedPlatform] = useState('All');
 
-  // DISCORD & SERVERS STATE
-  const [userServers, setUserServers] = useState(() => activeUser?.servers || DEFAULT_SERVERS);
-  const [selectedServerId, setSelectedServerId] = useState(() => userServers[0]?.id || 's_default_1');
-  const [selectedChannelId, setSelectedChannelId] = useState(() => userServers[0]?.channels[0]?.id || 'c_1');
+  const [userServers, setUserServers] = useState(DEFAULT_SERVERS);
+  const [selectedServerId, setSelectedServerId] = useState('s_default_1');
+  const [selectedChannelId, setSelectedChannelId] = useState('c_1');
   const [chatInput, setChatInput] = useState('');
 
-  // VRIENDEN & DM STATE
-  const [userFriends, setUserFriends] = useState(() => activeUser?.friends || DEFAULT_FRIENDS);
+  const [userFriends, setUserFriends] = useState(DEFAULT_FRIENDS);
   const [activeDmFriend, setActiveDmFriend] = useState(null);
   const [dmMessages, setDmMessages] = useState({});
   const [dmInput, setDmInput] = useState('');
 
-  // VERBINDINGEN STATE
-  const [userConnections, setUserConnections] = useState(() => activeUser?.connections || DEFAULT_CONNECTIONS);
+  const [userConnections, setUserConnections] = useState(DEFAULT_CONNECTIONS);
 
-  // MODAL STATES
   const [showAddServerModal, setShowAddServerModal] = useState(false);
   const [newServerName, setNewServerName] = useState('');
   const [newServerIcon, setNewServerIcon] = useState('🎮');
@@ -155,24 +148,33 @@ export default function App() {
   const chatEndRef = useRef(null);
 
   useEffect(() => {
+    if (activeUser) {
+      setUserServers(activeUser.servers || DEFAULT_SERVERS);
+      setUserFriends(activeUser.friends || DEFAULT_FRIENDS);
+      setUserConnections(activeUser.connections || DEFAULT_CONNECTIONS);
+      setEditAvatarUrl(activeUser.avatar || '');
+      setEditBio(activeUser.bio || '');
+      setEditPassword(activeUser.password || '');
+    }
+  }, [activeUser]);
+
+  useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [userServers, dmMessages]);
 
-  // HULPFUNCTIE OM DE ACTIEVE GEBRUIKER OP TE SLAAN
   const saveUserData = (updatedFields) => {
     if (!activeUser) return;
     const updatedUser = { ...activeUser, ...updatedFields };
     setActiveUser(updatedUser);
-    localStorage.setItem('gh_active_user_v2', JSON.stringify(updatedUser));
+    localStorage.setItem('gh_active_user_v3', JSON.stringify(updatedUser));
 
     const updatedUsersList = registeredUsers.map(u => 
       u.email === activeUser.email ? updatedUser : u
     );
     setRegisteredUsers(updatedUsersList);
-    localStorage.setItem('gh_reg_users_v2', JSON.stringify(updatedUsersList));
+    localStorage.setItem('gh_reg_users_v3', JSON.stringify(updatedUsersList));
   };
 
-  // HANDLERS VOOR AUTHENTICATIE
   const handleLogin = (e) => {
     e.preventDefault();
     setAuthError('');
@@ -242,18 +244,10 @@ export default function App() {
     }
 
     setRegisteredUsers(updatedList);
-    localStorage.setItem('gh_reg_users_v2', JSON.stringify(updatedList));
+    localStorage.setItem('gh_reg_users_v3', JSON.stringify(updatedList));
 
     setActiveUser(pendingUser);
-    localStorage.setItem('gh_active_user_v2', JSON.stringify(pendingUser));
-
-    setUserServers(pendingUser.servers || DEFAULT_SERVERS);
-    setUserFriends(pendingUser.friends || DEFAULT_FRIENDS);
-    setUserConnections(pendingUser.connections || DEFAULT_CONNECTIONS);
-
-    setEditAvatarUrl(pendingUser.avatar);
-    setEditBio(pendingUser.bio);
-    setEditPassword(pendingUser.password);
+    localStorage.setItem('gh_active_user_v3', JSON.stringify(pendingUser));
 
     setPendingUser(null);
     setInputOtp('');
@@ -262,7 +256,7 @@ export default function App() {
 
   const handleLogout = () => {
     setActiveUser(null);
-    localStorage.removeItem('gh_active_user_v2');
+    localStorage.removeItem('gh_active_user_v3');
     setAuthMode('login');
   };
 
@@ -270,12 +264,11 @@ export default function App() {
     if (window.confirm('Weet je zeker dat je je account definitief wilt verwijderen?')) {
       const updatedList = registeredUsers.filter(u => u.email !== activeUser.email);
       setRegisteredUsers(updatedList);
-      localStorage.setItem('gh_reg_users_v2', JSON.stringify(updatedList));
+      localStorage.setItem('gh_reg_users_v3', JSON.stringify(updatedList));
       handleLogout();
     }
   };
 
-  // HANDLERS VOOR CHAT & SERVERS
   const handleSendMessage = () => {
     if (!chatInput.trim()) return;
 
@@ -344,7 +337,6 @@ export default function App() {
     }
   };
 
-  // HANDLERS VOOR VRIENDEN & DM'S
   const handleAddFriend = (e) => {
     e.preventDefault();
     if (!newFriendInput.trim()) return;
@@ -397,7 +389,6 @@ export default function App() {
     setDmInput('');
   };
 
-  // HANDLERS VOOR VERBINDINGEN
   const handleAddConnection = (e) => {
     e.preventDefault();
     if (!connHandle.trim()) return;
@@ -440,7 +431,6 @@ export default function App() {
     saveUserData({ connections: updated });
   };
 
-  // PROFIEL INSTELINGEN OPSLAAN
   const handleSaveProfile = (e) => {
     e.preventDefault();
     saveUserData({
@@ -452,16 +442,15 @@ export default function App() {
     setTimeout(() => setSettingsMsg(''), 3000);
   };
 
-  // INLOGSCHERM WEERGEVEN ALS NIET INGELOGD
   if (!activeUser) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-slate-950 p-4 font-sans">
         <div className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-3xl p-6 md:p-8 shadow-2xl relative">
           <div className="text-center mb-6">
             <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-tr from-indigo-600 to-purple-600 text-white font-black text-2xl mb-3 shadow-lg shadow-indigo-500/30">
-              GH
+              {"GH"}
             </div>
-            <h1 className="text-2xl font-black text-white">GamerHub Ultra</h1>
+            <h1 className="text-2xl font-black text-white">{"GamerHub Ultra"}</h1>
             <p className="text-slate-400 text-xs mt-1">
               {authMode === 'login' && 'Meld je aan bij jouw eigen account'}
               {authMode === 'register' && 'Maak jouw unieke GamerHub account aan'}
@@ -471,14 +460,14 @@ export default function App() {
 
           {authError && (
             <div className="mb-4 p-3 bg-red-500/10 border border-red-500/30 rounded-2xl text-red-400 text-xs text-center font-semibold">
-              ⚠️ {authError}
+              {"⚠️ " + authError}
             </div>
           )}
 
           {authMode === 'login' && (
             <form onSubmit={handleLogin} className="space-y-4">
               <div>
-                <label className="block text-[11px] font-bold text-slate-400 uppercase mb-1">E-mail of Gebruikersnaam</label>
+                <label className="block text-[11px] font-bold text-slate-400 uppercase mb-1">{"E-mail of Gebruikersnaam"}</label>
                 <input
                   type="text"
                   required
@@ -489,7 +478,7 @@ export default function App() {
                 />
               </div>
               <div>
-                <label className="block text-[11px] font-bold text-slate-400 uppercase mb-1">Wachtwoord</label>
+                <label className="block text-[11px] font-bold text-slate-400 uppercase mb-1">{"Wachtwoord"}</label>
                 <input
                   type="password"
                   required
@@ -503,7 +492,7 @@ export default function App() {
                 type="submit"
                 className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3.5 rounded-xl transition text-sm shadow-lg"
               >
-                Inloggen
+                {"Inloggen"}
               </button>
               <div className="text-center mt-4">
                 <button
@@ -511,7 +500,7 @@ export default function App() {
                   onClick={() => { setAuthMode('register'); setAuthError(''); }}
                   className="text-xs text-indigo-400 font-semibold underline"
                 >
-                  Nog geen account? Registreer hier
+                  {"Nog geen account? Registreer hier"}
                 </button>
               </div>
             </form>
@@ -520,7 +509,7 @@ export default function App() {
           {authMode === 'register' && (
             <form onSubmit={handleRegister} className="space-y-3">
               <div>
-                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Gebruikersnaam</label>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">{"Gebruikersnaam"}</label>
                 <input
                   type="text"
                   required
@@ -531,7 +520,7 @@ export default function App() {
                 />
               </div>
               <div>
-                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">E-mailadres</label>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">{"E-mailadres"}</label>
                 <input
                   type="email"
                   required
@@ -542,7 +531,7 @@ export default function App() {
                 />
               </div>
               <div>
-                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">GSM Nummer (SMS 2FA)</label>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">{"GSM Nummer (SMS 2FA)"}</label>
                 <input
                   type="tel"
                   required
@@ -553,7 +542,7 @@ export default function App() {
                 />
               </div>
               <div>
-                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Wachtwoord</label>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">{"Wachtwoord"}</label>
                 <input
                   type="password"
                   required
@@ -567,7 +556,7 @@ export default function App() {
                 type="submit"
                 className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3 rounded-xl transition text-sm shadow-lg mt-2"
               >
-                Account Aanmaken
+                {"Account Aanmaken"}
               </button>
               <div className="text-center mt-3">
                 <button
@@ -575,7 +564,7 @@ export default function App() {
                   onClick={() => { setAuthMode('login'); setAuthError(''); }}
                   className="text-xs text-indigo-400 font-semibold underline"
                 >
-                  Al een account? Inloggen
+                  {"Al een account? Inloggen"}
                 </button>
               </div>
             </form>
@@ -584,15 +573,15 @@ export default function App() {
           {authMode === '2fa' && (
             <form onSubmit={handleVerify2FA} className="space-y-4">
               <div className="bg-slate-950 border border-indigo-500/40 rounded-2xl p-4 text-center">
-                <span className="text-[10px] font-extrabold text-indigo-300 uppercase block mb-1">💬 Inkomend SMS Bericht</span>
-                <p className="text-xs text-slate-300">Code voor <span className="font-bold text-white">{pendingUser?.phone}</span>:</p>
+                <span className="text-[10px] font-extrabold text-indigo-300 uppercase block mb-1">{"💬 Inkomend SMS Bericht"}</span>
+                <p className="text-xs text-slate-300">{"Code voor "} <span className="font-bold text-white">{pendingUser?.phone}</span>:</p>
                 <div className="my-2 bg-slate-900 border border-indigo-500/30 rounded-xl py-2 px-4 inline-block">
                   <span className="text-2xl font-mono font-black text-emerald-400 tracking-widest">{generatedOtp}</span>
                 </div>
               </div>
 
               <div>
-                <label className="block text-[11px] font-bold text-slate-400 uppercase mb-1">Code overnemen</label>
+                <label className="block text-[11px] font-bold text-slate-400 uppercase mb-1">{"Code overnemen"}</label>
                 <input
                   type="text"
                   maxLength={6}
@@ -608,7 +597,7 @@ export default function App() {
                 type="submit"
                 className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3.5 rounded-xl transition text-sm shadow-lg"
               >
-                Verifiëren & Inloggen
+                {"Verifiëren & Inloggen"}
               </button>
             </form>
           )}
@@ -626,19 +615,19 @@ export default function App() {
       <div className="md:hidden h-14 bg-slate-900 border-b border-slate-800 px-4 flex items-center justify-between z-30 shrink-0">
         <div className="flex items-center space-x-2">
           <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-indigo-600 to-purple-600 flex items-center justify-center font-black text-white text-sm">
-            GH
+            {"GH"}
           </div>
-          <span className="font-bold text-sm text-white">GamerHub Ultra</span>
+          <span className="font-bold text-sm text-white">{"GamerHub Ultra"}</span>
         </div>
         <div className="flex items-center space-x-2">
           <img src={activeUser.avatar} alt="Avatar" className="w-8 h-8 rounded-full bg-slate-800 border border-indigo-500" />
         </div>
       </div>
 
-      {/* HOOFD NAVIGATIEBAR (DISCORD STIJL LINKS) */}
+      {/* NAVIGATIEBAR LINKS */}
       <div className="order-last md:order-first w-full md:w-20 h-16 md:h-full bg-slate-900 border-t md:border-t-0 md:border-r border-slate-800 flex flex-row md:flex-col items-center justify-around md:justify-start py-0 md:py-6 space-x-1 md:space-x-0 md:space-y-6 z-30 shrink-0">
         <div className="hidden md:flex w-12 h-12 rounded-2xl bg-gradient-to-tr from-indigo-600 to-purple-600 items-center justify-center font-black text-white text-xl shadow-lg">
-          GH
+          {"GH"}
         </div>
         <hr className="hidden md:block w-10 border-slate-800" />
 
@@ -648,7 +637,7 @@ export default function App() {
           title="Dashboard & Stats"
         >
           <IconDashboard />
-          <span className="text-[9px] md:hidden mt-0.5 font-bold">Stats</span>
+          <span className="text-[9px] md:hidden mt-0.5 font-bold">{"Stats"}</span>
         </button>
 
         <button
@@ -657,7 +646,7 @@ export default function App() {
           title="Discord Servers"
         >
           <IconServer />
-          <span className="text-[9px] md:hidden mt-0.5 font-bold">Servers</span>
+          <span className="text-[9px] md:hidden mt-0.5 font-bold">{"Servers"}</span>
         </button>
 
         <button
@@ -666,7 +655,7 @@ export default function App() {
           title="Vrienden & DM's"
         >
           <IconChat />
-          <span className="text-[9px] md:hidden mt-0.5 font-bold">Vrienden</span>
+          <span className="text-[9px] md:hidden mt-0.5 font-bold">{"Vrienden"}</span>
         </button>
 
         <button
@@ -675,7 +664,7 @@ export default function App() {
           title="Verbindingen"
         >
           <IconLink />
-          <span className="text-[9px] md:hidden mt-0.5 font-bold">Links</span>
+          <span className="text-[9px] md:hidden mt-0.5 font-bold">{"Links"}</span>
         </button>
 
         <button
@@ -684,20 +673,19 @@ export default function App() {
           title="Account Instellingen"
         >
           <IconSettings />
-          <span className="text-[9px] md:hidden mt-0.5 font-bold">Account</span>
+          <span className="text-[9px] md:hidden mt-0.5 font-bold">{"Account"}</span>
         </button>
       </div>
 
-      {/* INHOUD PER TABBLAD */}
       <div className="flex-1 flex overflow-hidden relative">
 
-        {/* --- TAB 1: DASHBOARD & STATS --- */}
+        {/* TAB 1: DASHBOARD & STATS */}
         {activeTab === 'dashboard' && (
           <div className="flex-1 p-4 md:p-8 overflow-y-auto space-y-6">
             <div className="flex items-center justify-between">
               <div>
-                <h1 className="text-2xl md:text-3xl font-black text-white">Welkom terug, {activeUser.username}</h1>
-                <p className="text-xs md:text-sm text-slate-400">Jouw persoonlijke gaming profiel & statistieken</p>
+                <h1 className="text-2xl md:text-3xl font-black text-white">{"Welkom terug, " + activeUser.username}</h1>
+                <p className="text-xs md:text-sm text-slate-400">{"Jouw persoonlijke gaming profiel & statistieken"}</p>
               </div>
             </div>
 
@@ -719,33 +707,33 @@ export default function App() {
               <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex items-center justify-between shadow-lg">
                 <div>
                   <p className="text-xl md:text-2xl font-black text-white">{activeUser.gamesCount || '1.071'}</p>
-                  <p className="text-xs text-slate-400">Games Gespeeld</p>
+                  <p className="text-xs text-slate-400">{"Games Gespeeld"}</p>
                 </div>
-                <span className="text-3xl">🎮</span>
+                <span className="text-3xl">{"🎮"}</span>
               </div>
 
               <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex items-center justify-between shadow-lg">
                 <div>
                   <p className="text-xl md:text-2xl font-black text-amber-400">{activeUser.achievementsCount || '6.895'}</p>
-                  <p className="text-xs text-slate-400">Achievements</p>
+                  <p className="text-xs text-slate-400">{"Achievements"}</p>
                 </div>
-                <span className="text-3xl">🏆</span>
+                <span className="text-3xl">{"🏆"}</span>
               </div>
 
               <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex items-center justify-between shadow-lg">
                 <div>
-                  <p className="text-xl md:text-2xl font-black text-white">17h 1m</p>
-                  <p className="text-xs text-slate-400">Langste Sessie</p>
+                  <p className="text-xl md:text-2xl font-black text-white">{"17h 1m"}</p>
+                  <p className="text-xs text-slate-400">{"Langste Sessie"}</p>
                 </div>
-                <span className="text-3xl">📅</span>
+                <span className="text-3xl">{"📅"}</span>
               </div>
 
               <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex items-center justify-between shadow-lg">
                 <div>
-                  <p className="text-xl md:text-2xl font-black text-emerald-400">31h 55m</p>
-                  <p className="text-xs text-slate-400">Deze Week</p>
+                  <p className="text-xl md:text-2xl font-black text-emerald-400">{"31h 55m"}</p>
+                  <p className="text-xs text-slate-400">{"Deze Week"}</p>
                 </div>
-                <span className="text-3xl">⚡</span>
+                <span className="text-3xl">{"⚡"}</span>
               </div>
             </div>
 
@@ -753,32 +741,32 @@ export default function App() {
               <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl space-y-6">
                 <div>
                   <h2 className="text-3xl font-black text-white">{activeUser.totalHours || '14.466h'}</h2>
-                  <p className="text-xs text-slate-400">Totale speelduur geregistreerd</p>
+                  <p className="text-xs text-slate-400">{"Totale speelduur geregistreerd"}</p>
                 </div>
 
                 <div>
-                  <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">MEEST GESPEELDE GAMES</h3>
+                  <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">{"MEEST GESPEELDE GAMES"}</h3>
                   <div className="space-y-2">
                     <div className="flex items-center justify-between text-sm font-semibold">
                       <span className="flex items-center space-x-2">
                         <span className="w-2 h-2 rounded-full bg-amber-400"></span>
-                        <span className="text-slate-200">Fortnite</span>
+                        <span className="text-slate-200">{"Fortnite"}</span>
                       </span>
-                      <span className="text-slate-400 font-mono">1.986h</span>
+                      <span className="text-slate-400 font-mono">{"1.986h"}</span>
                     </div>
                     <div className="flex items-center justify-between text-sm font-semibold">
                       <span className="flex items-center space-x-2">
                         <span className="w-2 h-2 rounded-full bg-amber-400"></span>
-                        <span className="text-slate-200">Call of Duty</span>
+                        <span className="text-slate-200">{"Call of Duty"}</span>
                       </span>
-                      <span className="text-slate-400 font-mono">1.607h</span>
+                      <span className="text-slate-400 font-mono">{"1.607h"}</span>
                     </div>
                     <div className="flex items-center justify-between text-sm font-semibold">
                       <span className="flex items-center space-x-2">
                         <span className="w-2 h-2 rounded-full bg-amber-400"></span>
-                        <span className="text-slate-200">Palworld</span>
+                        <span className="text-slate-200">{"Palworld"}</span>
                       </span>
-                      <span className="text-slate-400 font-mono">860h</span>
+                      <span className="text-slate-400 font-mono">{"860h"}</span>
                     </div>
                   </div>
                 </div>
@@ -786,8 +774,8 @@ export default function App() {
 
               <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl flex flex-col justify-between">
                 <div>
-                  <h2 className="text-base font-bold text-white mb-1">Weekoverzicht</h2>
-                  <p className="text-xs text-slate-400 mb-4">Geregistreerde activiteit per dag</p>
+                  <h2 className="text-base font-bold text-white mb-1">{"Weekoverzicht"}</h2>
+                  <p className="text-xs text-slate-400 mb-4">{"Geregistreerde activiteit per dag"}</p>
 
                   <div className="flex items-end justify-between h-36 pt-4 pb-2 px-4 bg-slate-950/60 rounded-2xl border border-slate-800">
                     {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((day, idx) => (
@@ -813,10 +801,9 @@ export default function App() {
           </div>
         )}
 
-        {/* --- TAB 2: DISCORD SERVERS & CHAT --- */}
+        {/* TAB 2: DISCORD SERVERS & CHAT */}
         {activeTab === 'servers' && (
           <div className="flex-1 flex overflow-hidden w-full">
-            {/* SERVER LIJST LINKS */}
             <div className="w-16 bg-slate-950 border-r border-slate-800 flex flex-col items-center py-4 space-y-3 shrink-0">
               {userServers.map((s) => (
                 <button
@@ -836,11 +823,10 @@ export default function App() {
                 className="w-10 h-10 rounded-2xl bg-emerald-600/20 text-emerald-400 hover:bg-emerald-600 hover:text-white border border-emerald-500/30 flex items-center justify-center text-xl font-bold transition"
                 title="Server Aanmaken"
               >
-                +
+                {"+"}
               </button>
             </div>
 
-            {/* KANALEN LIJST */}
             <div className="w-48 bg-slate-900 border-r border-slate-800 flex flex-col shrink-0">
               <div className="p-4 border-b border-slate-800 flex items-center justify-between">
                 <h2 className="font-bold text-sm text-white truncate">{currentServer?.name}</h2>
@@ -854,7 +840,7 @@ export default function App() {
               </div>
 
               <div className="p-3 space-y-1 flex-1 overflow-y-auto">
-                <p className="text-[10px] font-bold text-slate-500 uppercase px-2 mb-1">Tekstkanalen</p>
+                <p className="text-[10px] font-bold text-slate-500 uppercase px-2 mb-1">{"Tekstkanalen"}</p>
                 {currentServer?.channels.map((chan) => (
                   <button
                     key={chan.id}
@@ -863,18 +849,17 @@ export default function App() {
                       selectedChannelId === chan.id ? 'bg-indigo-600/20 text-indigo-400 font-bold' : 'text-slate-400 hover:bg-slate-800'
                     }`}
                   >
-                    <span className="text-slate-500">#</span>
+                    <span className="text-slate-500">{"#"}</span>
                     <span>{chan.name}</span>
                   </button>
                 ))}
               </div>
             </div>
 
-            {/* CHAT SCHERM */}
             <div className="flex-1 flex flex-col bg-slate-950">
               <div className="h-14 border-b border-slate-800 px-6 flex items-center justify-between">
                 <h3 className="font-bold text-slate-200 text-sm">
-                  #{currentServer?.channels.find(c => c.id === selectedChannelId)?.name || 'kanaal'}
+                  {"#" + (currentServer?.channels.find(c => c.id === selectedChannelId)?.name || 'kanaal')}
                 </h3>
               </div>
 
@@ -905,7 +890,7 @@ export default function App() {
                     className="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-xs text-slate-100 focus:outline-none focus:border-indigo-500"
                   />
                   <button onClick={handleSendMessage} className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-5 py-3 rounded-xl text-xs">
-                    Stuur
+                    {"Stuur"}
                   </button>
                 </div>
               </div>
@@ -913,17 +898,17 @@ export default function App() {
           </div>
         )}
 
-        {/* --- TAB 3: VRIENDEN & PRIVÉBERICHTEN --- */}
+        {/* TAB 3: VRIENDEN & PRIVÉBERICHTEN */}
         {activeTab === 'friends' && (
           <div className="flex-1 flex overflow-hidden w-full">
             <div className="w-64 bg-slate-900 border-r border-slate-800 flex flex-col shrink-0">
               <div className="p-4 border-b border-slate-800 flex items-center justify-between">
-                <h2 className="font-bold text-white text-sm">Vrienden</h2>
+                <h2 className="font-bold text-white text-sm">{"Vrienden"}</h2>
                 <button
                   onClick={() => setShowAddFriendModal(true)}
                   className="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold px-2.5 py-1.5 rounded-lg"
                 >
-                  + Vriend
+                  {"+ Vriend"}
                 </button>
               </div>
 
@@ -982,3 +967,281 @@ export default function App() {
 
                   <div className="flex-1 p-6 overflow-y-auto space-y-4">
                     {(dmMessages[activeDmFriend.id] || []).map((m) => (
+                      <div key={m.id} className="flex items-start space-x-3 bg-slate-900/60 border border-slate-800 rounded-2xl p-3.5 max-w-xl">
+                        <img src={m.avatar} alt="Avatar" className="w-8 h-8 rounded-xl bg-slate-800 shrink-0" />
+                        <div>
+                          <div className="flex items-center space-x-2 mb-1">
+                            <span className="text-xs font-bold text-indigo-300">{m.sender}</span>
+                            <span className="text-[10px] text-slate-500">{m.time}</span>
+                          </div>
+                          <p className="text-xs text-slate-200">{m.text}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="p-4 border-t border-slate-800 bg-slate-900">
+                    <div className="flex space-x-2">
+                      <input
+                        type="text"
+                        value={dmInput}
+                        onChange={(e) => setDmInput(e.target.value)}
+                        onKeyDown={(e) => e.key === 'Enter' && handleSendDm()}
+                        placeholder={"Bericht naar " + activeDmFriend.name + "..."}
+                        className="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-xs text-slate-100 focus:outline-none focus:border-indigo-500"
+                      />
+                      <button onClick={handleSendDm} className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-5 py-3 rounded-xl text-xs">
+                        {"Stuur"}
+                      </button>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <div className="flex-1 flex items-center justify-center text-slate-500 text-xs">
+                  {"Selecteer een vriend uit de lijst om een privébericht te sturen."}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* TAB 4: VERBINDINGEN */}
+        {activeTab === 'connections' && (
+          <div className="flex-1 p-4 md:p-8 overflow-y-auto space-y-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h1 className="text-2xl md:text-3xl font-black text-white">{"Gekoppelde Accounts"}</h1>
+                <p className="text-xs md:text-sm text-slate-400">{"Verbindingen die op jouw profiel getoond worden"}</p>
+              </div>
+              <button
+                onClick={() => setShowAddConnModal(true)}
+                className="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold px-4 py-2 rounded-xl"
+              >
+                {"+ Verbinding"}
+              </button>
+            </div>
+
+            <div className="bg-slate-900 border border-slate-800 rounded-3xl p-4 md:p-6 shadow-xl space-y-3">
+              {userConnections.map((conn) => (
+                <div key={conn.id} className="bg-slate-950 border border-slate-800/80 rounded-2xl p-4 flex items-center justify-between">
+                  <div className="flex items-center space-x-4">
+                    <div className={`w-10 h-10 rounded-xl ${conn.color} flex items-center justify-center text-lg`}>
+                      {conn.icon}
+                    </div>
+                    <div>
+                      <div className="flex items-center space-x-2">
+                        <span className="text-sm font-bold text-white">{conn.handle}</span>
+                        {conn.verified && <span className="text-xs text-blue-400">{"✓"}</span>}
+                      </div>
+                      <p className="text-xs text-slate-400">{conn.platform + (conn.details ? " • " + conn.details : "")}</p>
+                    </div>
+                  </div>
+                  <button onClick={() => handleDeleteConn(conn.id)} className="text-slate-500 hover:text-red-400 p-2">
+                    <IconTrash />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* TAB 5: ACCOUNT INSTELLINGEN */}
+        {activeTab === 'settings' && (
+          <div className="flex-1 p-4 md:p-8 overflow-y-auto space-y-6">
+            <h1 className="text-2xl md:text-3xl font-black text-white">{"Account Instellingen"}</h1>
+
+            {settingsMsg && (
+              <div className="p-3 bg-emerald-500/20 border border-emerald-500/40 rounded-xl text-emerald-300 text-xs text-center font-bold">
+                {settingsMsg}
+              </div>
+            )}
+
+            <form onSubmit={handleSaveProfile} className="bg-slate-900 border border-slate-800 rounded-3xl p-5 shadow-xl space-y-4">
+              <h2 className="text-xs font-bold text-slate-400 uppercase tracking-wider">{"Profiel Aanpassen"}</h2>
+              <div>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">{"Profielfoto URL"}</label>
+                <input
+                  type="url"
+                  value={editAvatarUrl}
+                  onChange={(e) => setEditAvatarUrl(e.target.value)}
+                  placeholder="https://..."
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2 text-xs text-slate-200"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">{"Status / Bio"}</label>
+                <input
+                  type="text"
+                  value={editBio}
+                  onChange={(e) => setEditBio(e.target.value)}
+                  placeholder="Wat ben je aan het gamen?"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2 text-xs text-slate-200"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">{"Wachtwoord Wijzigen"}</label>
+                <input
+                  type="password"
+                  value={editPassword}
+                  onChange={(e) => setEditPassword(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2 text-xs text-slate-200"
+                />
+              </div>
+
+              <button type="submit" className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs px-5 py-2.5 rounded-xl">
+                {"Wijzigingen Opslaan"}
+              </button>
+            </form>
+
+            <div className="bg-slate-900 border border-slate-800 rounded-3xl p-5 shadow-xl space-y-4">
+              <h2 className="text-xs font-bold text-slate-400 uppercase tracking-wider">{"Beveiliging"}</h2>
+              <div className="flex items-center justify-between py-2">
+                <span className="text-sm font-bold text-slate-200">{"SMS-backup authenticatie"}</span>
+                <button
+                  onClick={() => setSmsBackup(!smsBackup)}
+                  className={`w-12 h-6 rounded-full transition-colors p-1 ${smsBackup ? 'bg-indigo-600' : 'bg-slate-700'}`}
+                >
+                  <div className={`w-4 h-4 rounded-full bg-white transition-transform ${smsBackup ? 'translate-x-6' : 'translate-x-0'}`}></div>
+                </button>
+              </div>
+            </div>
+
+            <div className="bg-slate-900 border border-slate-800 rounded-3xl p-5 shadow-xl space-y-3">
+              <h2 className="text-xs font-bold text-slate-400 uppercase tracking-wider">{"Accountmanagement"}</h2>
+              <button onClick={handleLogout} className="w-full text-left py-2 text-sm font-bold text-amber-400">
+                {"Uitloggen"}
+              </button>
+              <hr className="border-slate-800" />
+              <button onClick={handleDeleteAccount} className="w-full text-left py-2 text-sm font-bold text-red-500">
+                {"Verwijder Account Definitief"}
+              </button>
+            </div>
+          </div>
+        )}
+
+      </div>
+
+      {/* MODAL: SERVER AANMAKEN */}
+      {showAddServerModal && (
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
+          <div className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-2xl">
+            <h2 className="text-lg font-black text-white mb-4">{"+ Nieuwe Server Bouwen"}</h2>
+            <form onSubmit={handleCreateServer} className="space-y-4">
+              <div>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">{"Server Naam"}</label>
+                <input
+                  type="text"
+                  required
+                  value={newServerName}
+                  onChange={(e) => setNewServerName(e.target.value)}
+                  placeholder="bijv. Maffia Squad NL"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-xs text-slate-100"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">{"Emoji Icoon"}</label>
+                <input
+                  type="text"
+                  value={newServerIcon}
+                  onChange={(e) => setNewServerIcon(e.target.value)}
+                  placeholder="🎮 of ⚔️"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-xs text-slate-100"
+                />
+              </div>
+
+              <div className="flex space-x-2 pt-2">
+                <button type="button" onClick={() => setShowAddServerModal(false)} className="flex-1 bg-slate-800 text-slate-300 font-bold py-3 rounded-xl text-xs">
+                  {"Annuleren"}
+                </button>
+                <button type="submit" className="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3 rounded-xl text-xs">
+                  {"Aanmaken"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: VRIEND TOEVOEGEN */}
+      {showAddFriendModal && (
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
+          <div className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-2xl">
+            <h2 className="text-lg font-black text-white mb-4">{"+ Vriend Toevoegen"}</h2>
+            <form onSubmit={handleAddFriend} className="space-y-4">
+              <div>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">{"Gebruikersnaam / Tag"}</label>
+                <input
+                  type="text"
+                  required
+                  value={newFriendInput}
+                  onChange={(e) => setNewFriendInput(e.target.value)}
+                  placeholder="bijv. VermeerCraats#2026"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-xs text-slate-100"
+                />
+              </div>
+
+              <div className="flex space-x-2 pt-2">
+                <button type="button" onClick={() => setShowAddFriendModal(false)} className="flex-1 bg-slate-800 text-slate-300 font-bold py-3 rounded-xl text-xs">
+                  {"Annuleren"}
+                </button>
+                <button type="submit" className="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3 rounded-xl text-xs">
+                  {"Toevoegen"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: VERBINDING KOPPELEN */}
+      {showAddConnModal && (
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
+          <div className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-2xl">
+            <h2 className="text-lg font-black text-white mb-4">{"+ Platform Koppelen"}</h2>
+            <form onSubmit={handleAddConnection} className="space-y-4">
+              <div>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">{"Kies Platform"}</label>
+                <select
+                  value={connPlatform}
+                  onChange={(e) => setConnPlatform(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-xs text-slate-100"
+                >
+                  <option value="Twitch">Twitch</option>
+                  <option value="YouTube">YouTube</option>
+                  <option value="Discord">Discord</option>
+                  <option value="Spotify">Spotify</option>
+                  <option value="TikTok">TikTok</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">{"Gebruikersnaam op platform"}</label>
+                <input
+                  type="text"
+                  required
+                  value={connHandle}
+                  onChange={(e) => setConnHandle(e.target.value)}
+                  placeholder="bijv. maffia_games"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-xs text-slate-100"
+                />
+              </div>
+
+              <div className="flex space-x-2 pt-2">
+                <button type="button" onClick={() => setShowAddConnModal(false)} className="flex-1 bg-slate-800 text-slate-300 font-bold py-3 rounded-xl text-xs">
+                  {"Annuleren"}
+                </button>
+                <button type="submit" className="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3 rounded-xl text-xs">
+                  {"Koppelen"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+    </div>
+  );
+}
