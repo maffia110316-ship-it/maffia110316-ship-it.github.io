@@ -97,7 +97,7 @@ export default function App() {
 
   // SERVERS & CHAT STATE
   const [servers] = useState(INITIAL_SERVERS);
-  const [selectedServer, setSelectedServer] = useState(INITIAL_SERVERS[0]);
+  const [selectedServer] = useState(INITIAL_SERVERS[0]);
   const [selectedChannel, setSelectedChannel] = useState(INITIAL_SERVERS[0].channels[0]);
   const [messages, setMessages] = useState([
     { id: 'm1', sender: 'Alex#1337', text: 'Welkom op GamerHub Ultra! Wie is er in voor Palworld?', time: '14:20' },
