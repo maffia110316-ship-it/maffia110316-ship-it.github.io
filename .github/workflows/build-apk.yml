@@ -30,12 +30,11 @@ jobs:
       - name: Build Web App
         run: npm run build
 
-      - name: Add & Sync Capacitor Android
-        run: |
-          if [ ! -d "android" ]; then
-            npx cap add android
-          fi
-          npx cap sync android
+      - name: Add Android Platform
+        run: npx cap add android || true
+
+      - name: Sync Capacitor
+        run: npx cap sync android
 
       - name: Build Android Debug APK
         run: |
