@@ -1,0 +1,7 @@
+{
+  "name": "GamerHub Ultra",
+  "description": "Gaming community platform featuring live gaming news feeds, custom server communities with channels and chat, direct messaging, connected gaming accounts, and profile customization.",
+  "capabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
