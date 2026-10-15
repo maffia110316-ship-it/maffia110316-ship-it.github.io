@@ -1,241 +1,449 @@
-import { Server, Friend, Connection, NewsItem, User } from '../types';
+import { GameAchievement, NewsItem, PlayedGame } from '../types';
 
-export const STARTER_SERVERS: Server[] = [
+export const BANNER_PRESETS = [
   {
-    id: 's_default_1',
-    name: 'Chunkz Official SMP',
-    icon: '⛏️',
-    channels: [
-      { id: 'c_1', name: 'algemeen' },
-      { id: 'c_2', name: 'mc-builds' },
-      { id: 'c_3', name: 'server-events' }
-    ],
-    messages: {
-      'c_1': [
-        {
-          id: 'm1',
-          sender: 'ChunkzAdmin#9999',
-          avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=Admin',
-          text: 'Welkom op de officiële Chunkz SMP community server! Regels: respectvol blijven en geen griefing.',
-          time: '12:00'
-        },
-        {
-          id: 'm2',
-          sender: 'PixelCrafter#4040',
-          avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=Pixel',
-          text: 'Wie helpt er vanavond mee aan het megakasteel in Sector 4?',
-          time: '12:05'
-        }
-      ],
-      'c_2': [
-        {
-          id: 'm3',
-          sender: 'PixelCrafter#4040',
-          avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=Pixel',
-          text: 'Mijn nieuwe Netherite boerderij is eindelijk operationeel! Check coördinaten ~120, 64, -300.',
-          time: '13:15'
-        }
-      ],
-      'c_3': [
-        {
-          id: 'm4',
-          sender: 'ChunkzAdmin#9999',
-          avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=Admin',
-          text: 'Zondag om 20:00 uur organiseren we een Ender Dragon speedrun toernooi! Schrijf je in via de chat.',
-          time: '14:00'
-        }
-      ]
-    }
+    id: 'cyberpunk',
+    name: 'Cyberpunk Neon',
+    url: 'https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=1200&q=80',
+    color: 'from-purple-900 via-indigo-950 to-pink-900',
   },
   {
-    id: 's_default_2',
-    name: 'Palworld Guild NL',
-    icon: '🐾',
-    channels: [
-      { id: 'c_p1', name: 'algemeen' },
-      { id: 'c_p2', name: 'pals-ruilen' },
-      { id: 'c_p3', name: 'raid-bosses' }
-    ],
-    messages: {
-      'c_p1': [
-        {
-          id: 'm5',
-          sender: 'PalMaster#1010',
-          avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=Pal',
-          text: 'Wie doet er vanavond mee met de volgende Bellanoir raid?',
-          time: '14:30'
-        },
-        {
-          id: 'm6',
-          sender: 'ShadowHunter#7721',
-          avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=Shadow',
-          text: 'Ik ben erbij! Heb net mijn Jetragon tot level 50 geleveld.',
-          time: '14:45'
-        }
-      ]
-    }
+    id: 'space',
+    name: 'Deep Cosmos',
+    url: 'https://images.unsplash.com/photo-1506703719100-a0f3a48c0f86?auto=format&fit=crop&w=1200&q=80',
+    color: 'from-blue-950 via-slate-900 to-indigo-950',
   },
   {
-    id: 's_default_3',
-    name: 'PlayStation Squad Benelux',
-    icon: '🎮',
-    channels: [
-      { id: 'c_ps1', name: 'algemeen' },
-      { id: 'c_ps2', name: 'helldivers-2' },
-      { id: 'c_ps3', name: 'fifa-toernooien' }
-    ],
-    messages: {
-      'c_ps1': [
-        {
-          id: 'm7',
-          sender: 'DutchGamer#2026',
-          avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=Dutch',
-          text: 'Welkom PlayStation spelers! Drop je PSN ID om samen te co-oppen.',
-          time: '16:00'
-        }
-      ]
-    }
-  }
+    id: 'retro',
+    name: 'Retro Arcade',
+    url: 'https://images.unsplash.com/photo-1550745165-9bc0b252726f?auto=format&fit=crop&w=1200&q=80',
+    color: 'from-amber-900 via-orange-950 to-rose-950',
+  },
+  {
+    id: 'esports',
+    name: 'Esports Arena',
+    url: 'https://images.unsplash.com/photo-1511512578047-dfb367046420?auto=format&fit=crop&w=1200&q=80',
+    color: 'from-emerald-950 via-slate-900 to-teal-950',
+  },
+  {
+    id: 'dark-fantasy',
+    name: 'Dark Fantasy Realm',
+    url: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=1200&q=80',
+    color: 'from-red-950 via-stone-900 to-neutral-950',
+  },
 ];
 
-export const STARTER_FRIENDS: Friend[] = [
-  {
-    id: 'f_1',
-    name: 'PopeyeSpeirs#1111',
-    status: 'online',
-    game: 'ARC Raiders',
-    avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=Popeye',
-    isBlocked: false
-  },
-  {
-    id: 'f_2',
-    name: 'grimmkiller#5127',
-    status: 'offline',
-    game: 'Niet Actief',
-    avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=Grimm',
-    isBlocked: false
-  },
-  {
-    id: 'f_3',
-    name: 'VermeerCraats#2026',
-    status: 'online',
-    game: 'Elden Ring: Shadow of the Erdtree',
-    avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=Vermeer',
-    isBlocked: false
-  },
-  {
-    id: 'f_4',
-    name: 'NovaStrike#8834',
-    status: 'online',
-    game: 'Valorant',
-    avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=Nova',
-    isBlocked: false
-  }
-];
-
-export const STARTER_CONNECTIONS: Connection[] = [
-  {
-    id: 'conn_psn',
-    platform: 'PlayStation',
-    handle: 'Maffia_Games_',
-    verified: true,
-    details: 'Level 385 • 42 Platina Trophies',
-    icon: '🎮',
-    color: 'bg-indigo-600'
-  },
-  {
-    id: 'conn_steam',
-    platform: 'Steam',
-    handle: 'maffia_games',
-    verified: true,
-    details: '91 Games in bibliotheek',
-    icon: '💨',
-    color: 'bg-slate-800'
-  },
-  {
-    id: 'conn_twitch',
-    platform: 'Twitch',
-    handle: 'maffiagames_live',
-    verified: true,
-    details: 'Partner Streamer',
-    icon: '💜',
-    color: 'bg-purple-600'
-  },
-  {
-    id: 'conn_discord',
-    platform: 'Discord',
-    handle: 'Maffia#0001',
-    verified: true,
-    details: 'Nitro Member',
-    icon: '💬',
-    color: 'bg-indigo-600'
-  },
-  {
-    id: 'conn_tiktok',
-    platform: 'TikTok',
-    handle: '@maffiagames',
-    verified: true,
-    details: '113K Volgers',
-    icon: '📱',
-    color: 'bg-pink-600'
-  }
-];
-
-export const DEMO_USER: User = {
-  username: 'MaffiaGamer#1337',
-  email: 'demo@gamerhub.nl',
-  password: 'demo',
-  avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=MaffiaGamer',
-  bio: 'Pro gaming enthusiast, FPS & RPG veteraan. Altijd in voor een goede raid of competitieve lobby!',
-  totalHours: '1,420h',
-  gamesCount: '138',
-  achievementsCount: '842',
-  servers: STARTER_SERVERS,
-  friends: STARTER_FRIENDS,
-  connections: STARTER_CONNECTIONS
+// Rich platform achievements unlocked when PlayStation, Xbox, or Steam is linked
+export const PLATFORM_ACHIEVEMENTS: Record<'PlayStation' | 'Xbox' | 'Steam', GameAchievement[]> = {
+  PlayStation: [
+    {
+      id: 'ps_1',
+      platform: 'PlayStation',
+      gameTitle: 'God of War Ragnarök',
+      gameIcon: '🪓',
+      name: 'De Berenwolf',
+      description: 'Verzamel alle trofeeën en voltooi Kratos & Atreus zijn reis door de Negen Rijken.',
+      icon: '🏆',
+      rarity: 'Ultra Zeldzaam',
+      unlocked: true,
+      unlockedAt: '12 Okt 2026',
+      pointsOrType: 'Platina 🏆',
+    },
+    {
+      id: 'ps_2',
+      platform: 'PlayStation',
+      gameTitle: 'Marvel’s Spider-Man 2',
+      gameIcon: '🕷️',
+      name: 'Toegewijd aan New York',
+      description: 'Voltooi alle wijken voor 100% en bevrijd de stad van Kraven en Venom.',
+      icon: '🥇',
+      rarity: 'Zeldzaam',
+      unlocked: true,
+      unlockedAt: '04 Okt 2026',
+      pointsOrType: 'Goud 🥇',
+    },
+    {
+      id: 'ps_3',
+      platform: 'PlayStation',
+      gameTitle: 'Helldivers 2',
+      gameIcon: '🚀',
+      name: 'Spreid de Democratie',
+      description: 'Voltooi een Helldive missie zonder dat er een teamlid sneuvelt.',
+      icon: '🥇',
+      rarity: 'Legendarisch',
+      unlocked: true,
+      unlockedAt: '28 Sep 2026',
+      pointsOrType: 'Goud 🥇',
+    },
+    {
+      id: 'ps_4',
+      platform: 'PlayStation',
+      gameTitle: 'The Last of Us Part I',
+      gameIcon: '🌿',
+      name: 'Het Kan Niet Voor Niets Zijn',
+      description: 'Vind alle vuurvliegjeshangers en strips in het post-apocalyptische landschap.',
+      icon: '🥈',
+      rarity: 'Zeldzaam',
+      unlocked: true,
+      unlockedAt: '15 Sep 2026',
+      pointsOrType: 'Zilver 🥈',
+    },
+    {
+      id: 'ps_5',
+      platform: 'PlayStation',
+      gameTitle: 'Gran Turismo 7',
+      gameIcon: '🏎️',
+      name: 'Ronderecord Legende',
+      description: 'Behaal goud op alle licentietests in het circuit-kampioenschap.',
+      icon: '🥉',
+      rarity: 'Gewoon',
+      unlocked: true,
+      unlockedAt: '02 Sep 2026',
+      pointsOrType: 'Brons 🥉',
+    },
+  ],
+  Xbox: [
+    {
+      id: 'xb_1',
+      platform: 'Xbox',
+      gameTitle: 'Halo Infinite',
+      gameIcon: '🛡️',
+      name: 'Master Chief Legende',
+      description: 'Voltooi de Zeta Halo campagne op Legendary moeilijkheidsgraad solo.',
+      icon: '🎖️',
+      rarity: 'Ultra Zeldzaam',
+      unlocked: true,
+      unlockedAt: '09 Okt 2026',
+      pointsOrType: '100G',
+    },
+    {
+      id: 'xb_2',
+      platform: 'Xbox',
+      gameTitle: 'Forza Horizon 5',
+      gameIcon: '🏁',
+      name: 'Horizon Hall of Fame',
+      description: 'Nodig 100 racers uit en win alle festival expositie evenementen in Mexico.',
+      icon: '🏎️',
+      rarity: 'Zeldzaam',
+      unlocked: true,
+      unlockedAt: '01 Okt 2026',
+      pointsOrType: '50G',
+    },
+    {
+      id: 'xb_3',
+      platform: 'Xbox',
+      gameTitle: 'Starfield',
+      gameIcon: '🪐',
+      name: 'Verre Sterrenreiziger',
+      description: 'Bezoek 100 verschillende sterrenstelsels en bouw 10 buitenposten.',
+      icon: '🚀',
+      rarity: 'Zeldzaam',
+      unlocked: true,
+      unlockedAt: '22 Sep 2026',
+      pointsOrType: '50G',
+    },
+    {
+      id: 'xb_4',
+      platform: 'Xbox',
+      gameTitle: 'Gears 5',
+      gameIcon: '⚙️',
+      name: 'Zwerm Uitroeier',
+      description: 'Dood 10.000 Swarm vijanden in Horde modus op Insane moeilijkheidsgraad.',
+      icon: '💥',
+      rarity: 'Ultra Zeldzaam',
+      unlocked: true,
+      unlockedAt: '10 Sep 2026',
+      pointsOrType: '75G',
+    },
+    {
+      id: 'xb_5',
+      platform: 'Xbox',
+      gameTitle: 'Sea of Thieves',
+      gameIcon: '🏴‍☠️',
+      name: 'Pirate Legend Meester',
+      description: 'Bereik level 50 bij drie verschillende handelscompagnieën.',
+      icon: '⚓',
+      rarity: 'Legendarisch',
+      unlocked: true,
+      unlockedAt: '29 Aug 2026',
+      pointsOrType: '60G',
+    },
+  ],
+  Steam: [
+    {
+      id: 'stm_1',
+      platform: 'Steam',
+      gameTitle: 'Elden Ring',
+      gameIcon: '⚔️',
+      name: 'Elden Lord',
+      description: 'Bereik het Elden Lord einde en heers over the Lands Between.',
+      icon: '👑',
+      rarity: 'Ultra Zeldzaam',
+      unlocked: true,
+      unlockedAt: '11 Okt 2026',
+      pointsOrType: 'Zeldzaam (4.1%)',
+    },
+    {
+      id: 'stm_2',
+      platform: 'Steam',
+      gameTitle: 'Cyberpunk 2077',
+      gameIcon: '🦾',
+      name: 'De Stad Die Nooit Slaapt',
+      description: 'Voltooi alle opdrachten en NCPD-scanners in Pacifica en Heywood.',
+      icon: '🌆',
+      rarity: 'Zeldzaam',
+      unlocked: true,
+      unlockedAt: '05 Okt 2026',
+      pointsOrType: 'Zeldzaam (12.4%)',
+    },
+    {
+      id: 'stm_3',
+      platform: 'Steam',
+      gameTitle: 'Counter-Strike 2',
+      gameIcon: '🎯',
+      name: 'Scherpschutter Veteraan',
+      description: 'Win 100 Premier Competitive wedstrijden met een positieve kill/death ratio.',
+      icon: '💣',
+      rarity: 'Gewoon',
+      unlocked: true,
+      unlockedAt: '25 Sep 2026',
+      pointsOrType: 'Voltooid (28.9%)',
+    },
+    {
+      id: 'stm_4',
+      platform: 'Steam',
+      gameTitle: 'Baldur’s Gate 3',
+      gameIcon: '🎲',
+      name: 'Geen Rust voor de Verdoemden',
+      description: 'Overwin de Honour Mode zonder ooit een Total Party Kill te krijgen.',
+      icon: '🐉',
+      rarity: 'Legendarisch',
+      unlocked: true,
+      unlockedAt: '18 Sep 2026',
+      pointsOrType: 'Legendarisch (1.8%)',
+    },
+    {
+      id: 'stm_5',
+      platform: 'Steam',
+      gameTitle: 'Hollow Knight',
+      gameIcon: '🪲',
+      name: 'Panteon van Hallownest',
+      description: 'Voltooi het ultieme Panteon en omarm de leegte.',
+      icon: '✨',
+      rarity: 'Legendarisch',
+      unlocked: true,
+      unlockedAt: '03 Sep 2026',
+      pointsOrType: 'Ultra Zeldzaam (3.2%)',
+    },
+  ],
 };
 
+// Platform-specific mock games data populated ONLY when a platform is linked!
+export const PLATFORM_GAMES_DATABASE: Record<'playstation' | 'steam' | 'xbox', {
+  hours: number;
+  gamesCount: number;
+  achievementsCount: number;
+  bestSession: string;
+  thisWeek: string;
+  games: PlayedGame[];
+}> = {
+  playstation: {
+    hours: 12201,
+    gamesCount: 842,
+    achievementsCount: 5120,
+    bestSession: '17h 1m',
+    thisWeek: '1h 36m',
+    games: [
+      {
+        id: 'g_fn',
+        title: 'Fortnite',
+        platform: 'PlayStation',
+        hours: 1986,
+        formattedHours: '1.986h',
+        image: 'https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=800&q=80',
+        lastPlayed: 'Vandaag 07:45',
+        completion: '92%',
+      },
+      {
+        id: 'g_cod',
+        title: 'Call of Duty®',
+        platform: 'PlayStation',
+        hours: 1607,
+        formattedHours: '1.607h',
+        image: 'https://images.unsplash.com/photo-1511512578047-dfb367046420?auto=format&fit=crop&w=800&q=80',
+        lastPlayed: 'Gisteren',
+        completion: '78%',
+      },
+      {
+        id: 'g_r6',
+        title: "Tom Clancy's Rainbow Six Siege",
+        platform: 'PlayStation',
+        hours: 860,
+        formattedHours: '860h',
+        image: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=800&q=80',
+        lastPlayed: '3 dagen geleden',
+        completion: '65%',
+      },
+      {
+        id: 'g_sm2',
+        title: "Marvel's Spider-Man 2",
+        platform: 'PlayStation',
+        hours: 128,
+        formattedHours: '128h',
+        image: 'https://images.unsplash.com/photo-1607604276583-eef5d076aa5f?auto=format&fit=crop&w=800&q=80',
+        lastPlayed: '5 dagen geleden',
+        completion: '100%',
+      },
+      {
+        id: 'g_hd2',
+        title: 'Helldivers 2',
+        platform: 'PlayStation',
+        hours: 245,
+        formattedHours: '245h',
+        image: 'https://images.unsplash.com/photo-1506703719100-a0f3a48c0f86?auto=format&fit=crop&w=800&q=80',
+        lastPlayed: '1 week geleden',
+        completion: '85%',
+      },
+    ],
+  },
+  steam: {
+    hours: 1723,
+    gamesCount: 194,
+    achievementsCount: 1450,
+    bestSession: '9h 15m',
+    thisWeek: '42m',
+    games: [
+      {
+        id: 'g_cs2',
+        title: 'Counter-Strike 2',
+        platform: 'Steam',
+        hours: 840,
+        formattedHours: '840h',
+        image: 'https://images.unsplash.com/photo-1550745165-9bc0b252726f?auto=format&fit=crop&w=800&q=80',
+        lastPlayed: 'Eergisteren',
+        completion: '100%',
+      },
+      {
+        id: 'g_er',
+        title: 'Elden Ring',
+        platform: 'Steam',
+        hours: 312,
+        formattedHours: '312h',
+        image: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=800&q=80',
+        lastPlayed: '2 weken geleden',
+        completion: '100%',
+      },
+      {
+        id: 'g_cp',
+        title: 'Cyberpunk 2077',
+        platform: 'Steam',
+        hours: 140,
+        formattedHours: '140h',
+        image: 'https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=800&q=80',
+        lastPlayed: 'Vorige maand',
+        completion: '91%',
+      },
+      {
+        id: 'g_bg3',
+        title: 'Baldur’s Gate 3',
+        platform: 'Steam',
+        hours: 115,
+        formattedHours: '115h',
+        image: 'https://images.unsplash.com/photo-1511512578047-dfb367046420?auto=format&fit=crop&w=800&q=80',
+        lastPlayed: 'Vorige maand',
+        completion: '88%',
+      },
+    ],
+  },
+  xbox: {
+    hours: 256,
+    gamesCount: 35,
+    achievementsCount: 326,
+    bestSession: '6h 30m',
+    thisWeek: '0h',
+    games: [
+      {
+        id: 'g_hi',
+        title: 'Halo Infinite',
+        platform: 'Xbox',
+        hours: 120,
+        formattedHours: '120h',
+        image: 'https://images.unsplash.com/photo-1506703719100-a0f3a48c0f86?auto=format&fit=crop&w=800&q=80',
+        lastPlayed: 'Vorige week',
+        completion: '72%',
+      },
+      {
+        id: 'g_fh5',
+        title: 'Forza Horizon 5',
+        platform: 'Xbox',
+        hours: 95,
+        formattedHours: '95h',
+        image: 'https://images.unsplash.com/photo-1511512578047-dfb367046420?auto=format&fit=crop&w=800&q=80',
+        lastPlayed: 'Vorige maand',
+        completion: '68%',
+      },
+      {
+        id: 'g_sf',
+        title: 'Starfield',
+        platform: 'Xbox',
+        hours: 41,
+        formattedHours: '41h',
+        image: 'https://images.unsplash.com/photo-1550745165-9bc0b252726f?auto=format&fit=crop&w=800&q=80',
+        lastPlayed: '2 maanden geleden',
+        completion: '45%',
+      },
+    ],
+  },
+};
+
+// Fallback dynamic news items for offline resilience
 export const FALLBACK_NEWS: NewsItem[] = [
   {
+    id: 'news_1',
     title: 'Grand Theft Auto VI breekt nu al records met nieuwe trailers en gameplay details',
     pubDate: 'Vandaag, 18:30',
     link: 'https://www.gamer.nl',
     description: 'Rockstar Games deelt meer inzichten over de levendige open wereld van Vice City en de dynamische weersystemen en AI.',
-    author: 'Redactie Gamer.nl'
+    author: 'Redactie Gamer.nl',
   },
   {
+    id: 'news_2',
     title: 'PlayStation 5 Pro krijgt speciale optimalisaties voor meer dan 50 toptitels',
     pubDate: 'Vandaag, 16:15',
     link: 'https://www.gamer.nl',
     description: 'Sony bevestigt 60fps met raytracing voor topgames dankzij PlayStation Spectral Super Resolution (PSSR).',
-    author: 'Redactie Gamer.nl'
+    author: 'Redactie Gamer.nl',
   },
   {
+    id: 'news_3',
     title: 'Nintendo Switch opvolger officieel onthuld met volledige backwards compatibility',
     pubDate: 'Gisteren, 21:00',
     link: 'https://www.gamer.nl',
     description: 'Spelers kunnen al hun favoriete digitale en fysieke Switch-games meenemen naar het nieuwe platform met hogere resoluties.',
-    author: 'Redactie Gamer.nl'
+    author: 'Redactie Gamer.nl',
   },
   {
+    id: 'news_4',
     title: 'Nieuwe grote update voor Helldivers 2 brengt nieuwe vijanden en mechs naar het strijdveld',
     pubDate: 'Gisteren, 14:45',
     link: 'https://www.gamer.nl',
     description: 'Arrowhead Game Studios lanceert Escalation of Freedom met gloednieuwe missies, planeten en zware bepantsering.',
-    author: 'Redactie Gamer.nl'
+    author: 'Redactie Gamer.nl',
   },
   {
+    id: 'news_5',
     title: 'Steam Spring Sale van start: honderden pc-games met kortingen tot wel 90%',
     pubDate: 'Eergisteren, 19:00',
     link: 'https://www.gamer.nl',
     description: 'Valve trapt het seizoen af met gigantische prijsverlagingen op indie hits en AAA-blockbusters voor de PC en Steam Deck.',
-    author: 'Redactie Gamer.nl'
+    author: 'Redactie Gamer.nl',
   },
   {
+    id: 'news_6',
     title: 'The Witcher 4 Polaris bereikt volledige productie: Unreal Engine 5 details onthuld',
     pubDate: 'Eergisteren, 11:20',
     link: 'https://www.gamer.nl',
     description: 'CD Projekt RED bevestigt dat meer dan 400 ontwikkelaars nu volop werken aan de volgende grote RPG-saga.',
-    author: 'Redactie Gamer.nl'
-  }
+    author: 'Redactie Gamer.nl',
+  },
 ];

@@ -4,7 +4,8 @@ import { AlertTriangle } from 'lucide-react';
 interface ConfirmModalProps {
   isOpen: boolean;
   title: string;
-  message: string;
+  message?: string;
+  description?: string;
   confirmLabel?: string;
   cancelLabel?: string;
   isDestructive?: boolean;
@@ -16,6 +17,7 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
   isOpen,
   title,
   message,
+  description,
   confirmLabel = 'Bevestigen',
   cancelLabel = 'Annuleren',
   isDestructive = true,
@@ -23,6 +25,7 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
   onCancel,
 }) => {
   if (!isOpen) return null;
+  const displayDesc = description || message || '';
 
   return (
     <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
@@ -35,7 +38,7 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
             <h3 className="text-base font-bold text-white">{title}</h3>
           </div>
         </div>
-        <p className="text-xs text-slate-300 leading-relaxed">{message}</p>
+        <p className="text-xs text-slate-300 leading-relaxed">{displayDesc}</p>
         <div className="flex space-x-2 pt-2">
           <button
             type="button"

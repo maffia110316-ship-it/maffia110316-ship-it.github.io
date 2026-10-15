@@ -1,12 +1,23 @@
 import React from 'react';
-import { Newspaper, Server as ServerIcon, MessageSquare, Link2, Settings } from 'lucide-react';
-import { User } from '../types';
+import {
+  LayoutDashboard,
+  Newspaper,
+  Server as ServerIcon,
+  MessageSquare,
+  Trophy,
+  Link2,
+  Settings,
+  Bell,
+} from 'lucide-react';
+import { User, AppTab } from '../types';
 
 interface SidebarProps {
-  activeTab: 'news' | 'servers' | 'friends' | 'connections' | 'settings';
-  setActiveTab: (tab: 'news' | 'servers' | 'friends' | 'connections' | 'settings') => void;
+  activeTab: AppTab;
+  setActiveTab: (tab: AppTab) => void;
   currentUser: User;
   unreadDmCount?: number;
+  unreadNotifCount?: number;
+  onOpenNotifications?: () => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -14,19 +25,53 @@ export const Sidebar: React.FC<SidebarProps> = ({
   setActiveTab,
   currentUser,
   unreadDmCount = 0,
+  unreadNotifCount = 0,
+  onOpenNotifications,
 }) => {
   const tabs = [
-    { id: 'news' as const, label: 'Nieuws', icon: Newspaper, tooltip: 'Live Gaming Nieuws' },
-    { id: 'servers' as const, label: 'Servers', icon: ServerIcon, tooltip: 'Gaming Servers' },
-    { id: 'friends' as const, label: 'Vrienden', icon: MessageSquare, tooltip: "Vrienden & DM's", badge: unreadDmCount },
-    { id: 'connections' as const, label: 'Links', icon: Link2, tooltip: 'Gekoppelde Accounts' },
-    { id: 'settings' as const, label: 'Account', icon: Settings, tooltip: 'Account Instellingen' },
+    {
+      id: 'dashboard' as const,
+      label: 'Stats',
+      icon: LayoutDashboard,
+      tooltip: 'Pyroblast Stats Dashboard (0 uren/games tot koppeling)',
+    },
+    {
+      id: 'servers' as const,
+      label: 'Discord',
+      icon: ServerIcon,
+      tooltip: 'Discord.gg Servers & Spraakkanalen',
+    },
+    {
+      id: 'friends' as const,
+      label: 'Vrienden',
+      icon: MessageSquare,
+      tooltip: 'Vrienden & Voice Calls',
+      badge: unreadDmCount,
+    },
+    {
+      id: 'achievements' as const,
+      label: 'Trofeeën',
+      icon: Trophy,
+      tooltip: 'PlayStation, Xbox & Steam Achievements',
+    },
+    {
+      id: 'news' as const,
+      label: 'Nieuws',
+      icon: Newspaper,
+      tooltip: 'Live Gaming Nieuws Feed',
+    },
+    {
+      id: 'settings' as const,
+      label: 'Account',
+      icon: Settings,
+      tooltip: 'Account, Banner & 2FA',
+    },
   ];
 
   return (
     <nav
       aria-label="Hoofdnavigatie"
-      className="order-last md:order-first w-full md:w-20 h-16 md:h-full bg-slate-900/95 backdrop-blur-md border-t md:border-t-0 md:border-r border-slate-800 flex flex-row md:flex-col items-center justify-around md:justify-start py-0 md:py-6 space-x-1 md:space-x-0 md:space-y-6 z-30 shrink-0"
+      className="order-last md:order-first w-full md:w-20 h-16 md:h-full bg-slate-900/95 backdrop-blur-md border-t md:border-t-0 md:border-r border-slate-800 flex flex-row md:flex-col items-center justify-around md:justify-start py-0 md:py-5 space-x-1 md:space-x-0 md:space-y-4 z-30 shrink-0"
     >
       {/* Desktop Brand Logo */}
       <div className="hidden md:flex w-12 h-12 rounded-2xl bg-gradient-to-tr from-indigo-600 via-purple-600 to-pink-500 items-center justify-center font-black text-white text-xl shadow-lg shadow-indigo-600/30 ring-2 ring-indigo-400/20">
@@ -35,7 +80,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       <hr className="hidden md:block w-10 border-slate-800" />
 
       {/* Tabs */}
-      <div className="flex flex-row md:flex-col items-center justify-around md:justify-start w-full md:w-auto space-x-1 md:space-x-0 md:space-y-4">
+      <div className="flex flex-row md:flex-col items-center justify-around md:justify-start w-full md:w-auto space-x-1 md:space-x-0 md:space-y-3">
         {tabs.map((tab) => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;
@@ -56,7 +101,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 {tab.label}
               </span>
               {Boolean(tab.badge && tab.badge > 0) && (
-                <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white rounded-full text-[10px] font-black flex items-center justify-center ring-2 ring-slate-900">
+                <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white rounded-full text-[10px] font-black flex items-center justify-center ring-2 ring-slate-900 animate-pulse">
                   {tab.badge}
                 </span>
               )}
@@ -65,8 +110,24 @@ export const Sidebar: React.FC<SidebarProps> = ({
         })}
       </div>
 
-      {/* Desktop Bottom User Mini Profile */}
-      <div className="hidden md:flex mt-auto flex-col items-center pt-4">
+      {/* Desktop Bottom Notification Bell & User Mini Profile */}
+      <div className="hidden md:flex mt-auto flex-col items-center space-y-3 pt-2">
+        {/* Notification Bell */}
+        <button
+          type="button"
+          onClick={onOpenNotifications}
+          className="relative p-2.5 rounded-2xl bg-slate-800/60 hover:bg-slate-800 text-slate-300 hover:text-white transition shadow-sm border border-slate-700/60"
+          title="Meldingen bekijken (Oproepen, Berichten & Vrienden)"
+        >
+          <Bell className="w-4 h-4" />
+          {unreadNotifCount > 0 && (
+            <span className="absolute -top-1 -right-1 w-4 h-4 bg-[#5865f2] text-white rounded-full text-[10px] font-black flex items-center justify-center ring-2 ring-slate-900 animate-bounce">
+              {unreadNotifCount}
+            </span>
+          )}
+        </button>
+
+        {/* User Avatar with Discord dot */}
         <button
           onClick={() => setActiveTab('settings')}
           className="relative group p-1 rounded-2xl hover:bg-slate-800 transition"
@@ -77,7 +138,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             alt={currentUser.username}
             className="w-10 h-10 rounded-xl bg-slate-800 border-2 border-indigo-500 object-cover"
           />
-          <span className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-500 rounded-full border-2 border-slate-900" />
+          <span className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-500 rounded-full border-2 border-slate-900 ring-1 ring-emerald-400/50" />
         </button>
       </div>
     </nav>

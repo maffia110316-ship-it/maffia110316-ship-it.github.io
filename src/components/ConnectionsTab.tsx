@@ -76,15 +76,13 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
                 Koppel je PlayStation, Steam, Discord of Twitch account om je gaming profiel compleet te maken.
               </p>
             </div>
-            {onLoadStarterConnections && (
-              <button
-                onClick={onLoadStarterConnections}
-                className="inline-flex items-center space-x-1.5 bg-slate-800 hover:bg-slate-700 text-indigo-300 font-bold px-4 py-2 rounded-xl text-xs transition"
-              >
-                <Sparkles className="w-3.5 h-3.5" />
-                <span>Voorbeeldkoppelingen Inladen</span>
-              </button>
-            )}
+            <button
+              onClick={() => setShowModal(true)}
+              className="inline-flex items-center space-x-1.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-4 py-2.5 rounded-xl text-xs transition shadow-md shadow-indigo-600/30"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>Koppel Jouw Eerste Account</span>
+            </button>
           </div>
         ) : (
           connections.map((c) => {

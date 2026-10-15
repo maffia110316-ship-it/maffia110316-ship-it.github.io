@@ -1,29 +1,46 @@
-import React, { useState, useEffect } from 'react';
-import { User, Server, Friend, Connection, NewsItem, ChannelMessage } from './types';
+import React, { useState, useEffect, useRef } from 'react';
 import {
-  STARTER_SERVERS,
-  STARTER_FRIENDS,
-  STARTER_CONNECTIONS,
-  DEMO_USER,
-  FALLBACK_NEWS,
-} from './data/starterData';
+  User,
+  Server,
+  Friend,
+  Connection,
+  NewsItem,
+  ChannelMessage,
+  AppTab,
+  UserAppNotification,
+} from './types';
+import { FALLBACK_NEWS, BANNER_PRESETS, PLATFORM_GAMES_DATABASE } from './data/starterData';
+import { ANIMATED_AVATAR_PRESETS, ANIMATED_BANNER_PRESETS } from './data/mediaPresets';
 import { Sidebar } from './components/Sidebar';
 import { Header } from './components/Header';
+import { DashboardTab } from './components/DashboardTab';
 import { NewsTab } from './components/NewsTab';
 import { ServersTab } from './components/ServersTab';
 import { FriendsTab } from './components/FriendsTab';
+import { AchievementsTab } from './components/AchievementsTab';
 import { ConnectionsTab } from './components/ConnectionsTab';
 import { SettingsTab } from './components/SettingsTab';
 import { AuthScreen } from './components/AuthScreen';
+import { CallModal } from './components/CallModal';
+import { FriendProfileModal } from './components/FriendProfileModal';
+import { NotificationToast } from './components/NotificationToast';
+import { NotificationCenterModal } from './components/NotificationCenterModal';
+import { testFirestoreConnection } from './firebase';
+import {
+  persistUserAccount,
+  fetchUserAccount,
+  subscribeToUserAccount,
+} from './services/userService';
+import { discordAudio } from './utils/discordAudio';
 
 export default function App() {
-  // Stored registered users
+  // Stored registered users in database / persistent storage
   const [usersList, setUsersList] = useState<User[]>(() => {
     try {
       const saved = localStorage.getItem('gh_v5_users');
-      return saved ? JSON.parse(saved) : [DEMO_USER];
+      return saved ? JSON.parse(saved) : [];
     } catch {
-      return [DEMO_USER];
+      return [];
     }
   });
 
@@ -37,90 +54,120 @@ export default function App() {
     }
   });
 
-  // Navigation
-  const [activeTab, setActiveTab] = useState<'news' | 'servers' | 'friends' | 'connections' | 'settings'>('news');
+  // Default to Dashboard (matching Pyroblast gaming tracker screenshots)
+  const [activeTab, setActiveTab] = useState<AppTab>('dashboard');
 
-  // Auth state
+  // Auth error & 2FA state
   const [authError, setAuthError] = useState('');
+  const [pending2FAUser, setPending2FAUser] = useState<User | null>(null);
+  const [expected2FACode, setExpected2FACode] = useState<string>('');
 
-  // News state
+  // News state with auto-updating
   const [liveNews, setLiveNews] = useState<NewsItem[]>(FALLBACK_NEWS);
   const [loadingNews, setLoadingNews] = useState(false);
   const [lastUpdatedNews, setLastUpdatedNews] = useState('');
+  const [hasNewIncoming, setHasNewIncoming] = useState(false);
 
-  // Servers state
+  // Servers state (strictly starting with 0 servers)
   const [servers, setServers] = useState<Server[]>([]);
   const [activeServerId, setActiveServerId] = useState<string>('');
   const [activeChannelId, setActiveChannelId] = useState<string>('');
 
-  // Friends & DM state
+  // Friends & DM state (strictly starting with 0 friends)
   const [friends, setFriends] = useState<Friend[]>([]);
   const [activeFriend, setActiveFriend] = useState<Friend | null>(null);
   const [dmHistory, setDmHistory] = useState<Record<string, ChannelMessage[]>>(() => {
     try {
       const saved = localStorage.getItem('gh_v5_dm');
-      return saved
-        ? JSON.parse(saved)
-        : {
-            f_1: [
-              {
-                id: 'dm_init_1',
-                sender: 'PopeyeSpeirs#1111',
-                avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=Popeye',
-                text: 'Yo! Ben je straks online voor ARC Raiders?',
-                time: '11:20',
-              },
-            ],
-            f_3: [
-              {
-                id: 'dm_init_2',
-                sender: 'VermeerCraats#2026',
-                avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=Vermeer',
-                text: 'Heb je die nieuwe Elden Ring DLC boss al verslagen?',
-                time: '15:45',
-              },
-            ],
-          };
+      return saved ? JSON.parse(saved) : {};
     } catch {
       return {};
     }
   });
 
+  // Notification system
+  const [notifications, setNotifications] = useState<UserAppNotification[]>([]);
+  const [activeToastNotification, setActiveToastNotification] = useState<UserAppNotification | null>(
+    null
+  );
+  const [isNotificationCenterOpen, setIsNotificationCenterOpen] = useState(false);
+
   // Connections state
   const [connections, setConnections] = useState<Connection[]>([]);
 
-  // Fetch Live RSS Gaming News from Gamer.nl
-  const fetchLiveNews = async () => {
-    setLoadingNews(true);
+  // Calling state (Discord-style voice & video)
+  const [activeCall, setActiveCall] = useState<{
+    isOpen: boolean;
+    type: 'voice' | 'video';
+    friend: Friend;
+    isIncoming: boolean;
+  } | null>(null);
+
+  // Friend Profile inspection state
+  const [inspectedFriend, setInspectedFriend] = useState<Friend | null>(null);
+
+  // Test Firestore on boot
+  useEffect(() => {
+    testFirestoreConnection().catch(console.error);
+  }, []);
+
+  // Fetch Live RSS Gaming News with real-time new item detection
+  const fetchLiveNews = async (isBackground = false) => {
+    if (!isBackground) setLoadingNews(true);
     try {
-      const res = await fetch('https://api.rss2json.com/v1/api.json?rss_url=https://www.gamer.nl/feed');
+      const res = await fetch(
+        'https://api.rss2json.com/v1/api.json?rss_url=https://www.gamer.nl/feed'
+      );
       if (!res.ok) throw new Error('Network error');
       const data = await res.json();
       if (data.items && Array.isArray(data.items) && data.items.length > 0) {
-        setLiveNews(data.items);
-        setLastUpdatedNews(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
-      } else {
-        setLiveNews(FALLBACK_NEWS);
+        setLiveNews((prev) => {
+          const existingLinks = new Set(prev.map((i) => i.link));
+          const freshItems: NewsItem[] = data.items.map((item: NewsItem, idx: number) => ({
+            ...item,
+            id: `rss_${Date.now()}_${idx}`,
+            isNew: !existingLinks.has(item.link) && prev.length > 0,
+          }));
+
+          const hasBrandNew = freshItems.some((i) => i.isNew);
+          if (hasBrandNew && isBackground) {
+            setHasNewIncoming(true);
+            setTimeout(() => setHasNewIncoming(false), 5000);
+          }
+          return freshItems;
+        });
+        setLastUpdatedNews(
+          new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        );
       }
-    } catch (e) {
-      console.warn('Kan Gamer.nl feed niet bereiken, gebruik fallback nieuws:', e);
-      setLiveNews(FALLBACK_NEWS);
-      setLastUpdatedNews('Offline modus (gecached)');
+    } catch {
+      if (liveNews.length === 0) setLiveNews(FALLBACK_NEWS);
     } finally {
-      setLoadingNews(false);
+      if (!isBackground) setLoadingNews(false);
     }
   };
 
+  // Initial fetch and real-time auto-polling every 25 seconds
   useEffect(() => {
     fetchLiveNews();
+    const interval = setInterval(() => {
+      fetchLiveNews(true);
+    }, 25000);
+    return () => clearInterval(interval);
   }, []);
 
-  // Sync state when current user changes
+  // Sync state when currentUser changes or loads from storage
   useEffect(() => {
     if (currentUser) {
       setServers(currentUser.servers || []);
       setFriends(currentUser.friends || []);
       setConnections(currentUser.connections || []);
+      if (currentUser.dmHistory) {
+        setDmHistory(currentUser.dmHistory);
+      }
+      if (currentUser.notifications) {
+        setNotifications(currentUser.notifications);
+      }
 
       if (currentUser.servers && currentUser.servers.length > 0) {
         setActiveServerId((prev) => (prev ? prev : currentUser.servers[0].id));
@@ -128,6 +175,61 @@ export default function App() {
       }
       if (currentUser.friends && currentUser.friends.length > 0 && !activeFriend) {
         setActiveFriend(currentUser.friends[0]);
+      }
+    }
+  }, [currentUser?.email]);
+
+  // Real-time Cloud Firestore subscription for the logged-in user
+  // This automatically receives incoming direct messages, call requests, and friend alerts!
+  const prevNotifCountRef = useRef<number>(0);
+  useEffect(() => {
+    if (!currentUser?.email) return;
+
+    const unsubscribe = subscribeToUserAccount(currentUser.email, (remoteUser) => {
+      if (!remoteUser) return;
+
+      // Check if new notification arrived
+      const newNotifs = remoteUser.notifications || [];
+      if (newNotifs.length > prevNotifCountRef.current && newNotifs.length > 0) {
+        const newest = newNotifs[0];
+        setActiveToastNotification(newest);
+        if (newest.type === 'call') {
+          discordAudio.startCallRingtone();
+        } else {
+          discordAudio.playMessagePing();
+        }
+      }
+      prevNotifCountRef.current = newNotifs.length;
+
+      // Keep local state in sync with Cloud Firestore
+      setNotifications(newNotifs);
+      if (remoteUser.dmHistory) setDmHistory(remoteUser.dmHistory);
+      if (remoteUser.friends) setFriends(remoteUser.friends);
+      if (remoteUser.servers) setServers(remoteUser.servers);
+      if (remoteUser.connections) setConnections(remoteUser.connections);
+
+      // Update current user state with remote data
+      setCurrentUser((prev) => (prev ? { ...prev, ...remoteUser } : remoteUser));
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, [currentUser?.email]);
+
+  // Handle URL invite parameter (?invite=GamerName)
+  useEffect(() => {
+    if (typeof window !== 'undefined' && currentUser) {
+      const params = new URLSearchParams(window.location.search);
+      const inviteName = params.get('invite');
+      if (inviteName && inviteName.toLowerCase() !== currentUser.username.toLowerCase()) {
+        const alreadyFriend = (currentUser.friends || []).some(
+          (f) => f.name.toLowerCase() === inviteName.toLowerCase()
+        );
+        if (!alreadyFriend) {
+          handleAddFriend(inviteName);
+          window.history.replaceState({}, document.title, window.location.pathname);
+        }
       }
     }
   }, [currentUser]);
@@ -141,48 +243,118 @@ export default function App() {
     }
   }, [dmHistory]);
 
-  // Central user state update helper
+  // Central user updates helper - saves to local session AND Cloud Firestore
   const saveUserChanges = (updatedUserData: Partial<User>) => {
     if (!currentUser) return;
-    const updated: User = { ...currentUser, ...updatedUserData };
-    setCurrentUser(updated);
-    localStorage.setItem('gh_v5_session', JSON.stringify(updated));
+    const updated: User = {
+      ...currentUser,
+      ...updatedUserData,
+      dmHistory: updatedUserData.dmHistory || dmHistory,
+      notifications: updatedUserData.notifications || notifications,
+    };
 
-    const updatedAll = usersList.map((u) => (u.email === currentUser.email ? updated : u));
+    setCurrentUser(updated);
+
+    // Save to Firestore and localStorage
+    persistUserAccount(updated).catch((err) =>
+      console.warn('Background Firestore save error:', err)
+    );
+
+    const updatedAll = usersList.map((u) =>
+      u.email.toLowerCase() === currentUser.email.toLowerCase() ? updated : u
+    );
     setUsersList(updatedAll);
-    localStorage.setItem('gh_v5_users', JSON.stringify(updatedAll));
   };
 
-  // Auth: Login
-  const handleLogin = (identifier: string, pass: string): boolean => {
-    const found = usersList.find(
+  // Auth: Login - searches Cloud Firestore first, with fallback to local storage
+  const handleLogin = async (identifier: string, pass: string) => {
+    setAuthError('');
+
+    // 1. Try finding in local usersList first
+    let userToAuth = usersList.find(
       (u) =>
         (u.email.toLowerCase() === identifier.toLowerCase() ||
           u.username.toLowerCase() === identifier.toLowerCase()) &&
         u.password === pass
     );
 
-    if (!found) {
-      setAuthError('Onjuiste gebruikersnaam, e-mailadres of wachtwoord.');
-      return false;
+    // 2. If not found locally or password mismatch, query Firestore Cloud DB!
+    if (!userToAuth) {
+      try {
+        const remote = await fetchUserAccount(identifier);
+        if (remote && remote.password === pass) {
+          userToAuth = remote;
+        }
+      } catch (err) {
+        console.warn('Firestore remote lookup error:', err);
+      }
     }
 
-    setCurrentUser(found);
-    localStorage.setItem('gh_v5_session', JSON.stringify(found));
+    if (!userToAuth) {
+      setAuthError('Onjuiste gebruikersnaam, e-mailadres of wachtwoord.');
+      return { success: false };
+    }
+
+    // 2FA check
+    if (userToAuth.twoFactorEnabled) {
+      const code = Math.floor(100000 + Math.random() * 900000).toString();
+      setPending2FAUser(userToAuth);
+      setExpected2FACode(code);
+      return { success: false, requires2FA: true, user: userToAuth, tempCode: code };
+    }
+
+    // Login successful
+    setCurrentUser(userToAuth);
+    if (userToAuth.dmHistory) setDmHistory(userToAuth.dmHistory);
+    if (userToAuth.notifications) setNotifications(userToAuth.notifications);
+    setServers(userToAuth.servers || []);
+    setFriends(userToAuth.friends || []);
+    setConnections(userToAuth.connections || []);
+
+    await persistUserAccount(userToAuth);
     setAuthError('');
-    return true;
+    return { success: true };
   };
 
-  // Auth: Register
-  const handleRegister = (regUsername: string, regEmail: string, pass: string): boolean => {
-    const exists = usersList.some(
+  // Auth: 2FA Verification
+  const handleVerify2FA = async (code: string): Promise<boolean> => {
+    if (pending2FAUser && code === expected2FACode) {
+      setCurrentUser(pending2FAUser);
+      if (pending2FAUser.dmHistory) setDmHistory(pending2FAUser.dmHistory);
+      if (pending2FAUser.notifications) setNotifications(pending2FAUser.notifications);
+      await persistUserAccount(pending2FAUser);
+      setPending2FAUser(null);
+      setExpected2FACode('');
+      setAuthError('');
+      return true;
+    }
+    return false;
+  };
+
+  // Auth: Register (CRITICAL: 0 servers, 0 friends, 0 hours, 0 games, 0 achievements!)
+  const handleRegister = async (
+    regUsername: string,
+    regEmail: string,
+    pass: string
+  ): Promise<boolean> => {
+    setAuthError('');
+
+    // Check if user already exists
+    const existsLocally = usersList.some(
       (u) =>
         u.email.toLowerCase() === regEmail.toLowerCase() ||
         u.username.toLowerCase() === regUsername.toLowerCase()
     );
 
-    if (exists) {
+    if (existsLocally) {
       setAuthError('Er bestaat al een account met deze gebruikersnaam of e-mail!');
+      return false;
+    }
+
+    // Check remote Firestore
+    const existingRemote = await fetchUserAccount(regEmail);
+    if (existingRemote) {
+      setAuthError('Er bestaat al een account met dit e-mailadres in de database!');
       return false;
     }
 
@@ -190,38 +362,45 @@ export default function App() {
       username: regUsername,
       email: regEmail,
       password: pass,
-      avatar: `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(regUsername)}`,
-      bio: 'GamerHub Gamer',
+      avatar: ANIMATED_AVATAR_PRESETS[0].url,
+      banner: ANIMATED_BANNER_PRESETS[0].url,
+      bio: 'GamerHub Gamer • 0 servers • 0 vrienden',
       totalHours: '0h',
       gamesCount: '0',
       achievementsCount: '0',
-      servers: STARTER_SERVERS,
-      friends: STARTER_FRIENDS,
+      twoFactorEnabled: false,
+      servers: [], // STRICT: 0 servers
+      friends: [], // STRICT: 0 friends
       connections: [],
+      linkedGamingAccounts: {}, // STRICT: 0 linked accounts -> 0 hours, 0 achievements
+      dmHistory: {},
+      notifications: [
+        {
+          id: 'welcome_' + Date.now(),
+          type: 'system',
+          title: 'Welkom bij GamerHub Ultra!',
+          body: 'Je account is veilig opgeslagen in de cloud. Koppel je PlayStation, Xbox of Steam account om je uren en trofeeën te synchroniseren.',
+          timestamp: Date.now(),
+          timeString: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          read: false,
+        },
+      ],
     };
+
+    // Save to Firestore and local storage
+    await persistUserAccount(newUser);
 
     const updatedUsers = [...usersList, newUser];
     setUsersList(updatedUsers);
-    localStorage.setItem('gh_v5_users', JSON.stringify(updatedUsers));
 
     setCurrentUser(newUser);
-    localStorage.setItem('gh_v5_session', JSON.stringify(newUser));
+    setServers([]);
+    setFriends([]);
+    setConnections([]);
+    setDmHistory({});
+    setNotifications(newUser.notifications || []);
     setAuthError('');
     return true;
-  };
-
-  // Auth: Demo Login
-  const handleDemoLogin = () => {
-    const demo = DEMO_USER;
-    const exists = usersList.some((u) => u.email === demo.email);
-    if (!exists) {
-      const updated = [...usersList, demo];
-      setUsersList(updated);
-      localStorage.setItem('gh_v5_users', JSON.stringify(updated));
-    }
-    setCurrentUser(demo);
-    localStorage.setItem('gh_v5_session', JSON.stringify(demo));
-    setAuthError('');
   };
 
   // Auth: Logout
@@ -229,20 +408,146 @@ export default function App() {
     setCurrentUser(null);
     localStorage.removeItem('gh_v5_session');
     setActiveFriend(null);
+    setActiveCall(null);
   };
 
   // Auth: Delete Account
   const handleDeleteAccount = () => {
     if (!currentUser) return;
-    const updated = usersList.filter((u) => u.email !== currentUser.email);
+    const updated = usersList.filter(
+      (u) => u.email.toLowerCase() !== currentUser.email.toLowerCase()
+    );
     setUsersList(updated);
     localStorage.setItem('gh_v5_users', JSON.stringify(updated));
     handleLogout();
   };
 
+  // Link PlayStation, Xbox, or Steam platform
+  const handleLinkPlatform = (platform: 'playstation' | 'xbox' | 'steam', handle: string) => {
+    const linked = { ...(currentUser?.linkedGamingAccounts || {}) };
+    const dateStr = new Date().toLocaleDateString('nl-NL', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+    });
+
+    if (platform === 'playstation') {
+      const psData = PLATFORM_GAMES_DATABASE.playstation;
+      linked.playstation = {
+        handle,
+        linkedAt: dateStr,
+        hours: psData.hours,
+        gamesCount: psData.gamesCount,
+        achievementsCount: psData.achievementsCount,
+        bestSession: psData.bestSession,
+        thisWeek: psData.thisWeek,
+        level: 385,
+        totalTrophies: 1420,
+        platinum: 14,
+        gold: 88,
+        silver: 312,
+        bronze: 1006,
+        games: psData.games,
+      };
+    } else if (platform === 'xbox') {
+      const xbData = PLATFORM_GAMES_DATABASE.xbox;
+      linked.xbox = {
+        handle,
+        linkedAt: dateStr,
+        hours: xbData.hours,
+        gamesCount: xbData.gamesCount,
+        achievementsCount: xbData.achievementsCount,
+        bestSession: xbData.bestSession,
+        thisWeek: xbData.thisWeek,
+        gamerscore: 48920,
+        totalAchievements: 954,
+        tier: 'Gold Master',
+        games: xbData.games,
+      };
+    } else if (platform === 'steam') {
+      const stmData = PLATFORM_GAMES_DATABASE.steam;
+      linked.steam = {
+        handle,
+        linkedAt: dateStr,
+        hours: stmData.hours,
+        gamesCount: stmData.gamesCount,
+        achievementsCount: stmData.achievementsCount,
+        bestSession: stmData.bestSession,
+        thisWeek: stmData.thisWeek,
+        steamLevel: 65,
+        perfectGames: 8,
+        totalAchievements: 1120,
+        games: stmData.games,
+      };
+    }
+
+    let sumHours = 0;
+    let sumGames = 0;
+    let sumAchievements = 0;
+
+    if (linked.playstation) {
+      sumHours += linked.playstation.hours;
+      sumGames += linked.playstation.gamesCount;
+      sumAchievements += linked.playstation.totalTrophies;
+    }
+    if (linked.steam) {
+      sumHours += linked.steam.hours;
+      sumGames += linked.steam.gamesCount;
+      sumAchievements += linked.steam.totalAchievements;
+    }
+    if (linked.xbox) {
+      sumHours += linked.xbox.hours;
+      sumGames += linked.xbox.gamesCount;
+      sumAchievements += linked.xbox.totalAchievements;
+    }
+
+    saveUserChanges({
+      linkedGamingAccounts: linked,
+      totalHours: sumHours > 0 ? `${sumHours.toLocaleString('nl-NL')}h` : '0h',
+      gamesCount: sumGames > 0 ? sumGames.toLocaleString('nl-NL') : '0',
+      achievementsCount: sumAchievements > 0 ? sumAchievements.toLocaleString('nl-NL') : '0',
+    });
+  };
+
+  const handleUnlinkPlatform = (platform: 'playstation' | 'xbox' | 'steam') => {
+    const linked = { ...(currentUser?.linkedGamingAccounts || {}) };
+    delete linked[platform];
+
+    let sumHours = 0;
+    let sumGames = 0;
+    let sumAchievements = 0;
+
+    if (linked.playstation) {
+      sumHours += linked.playstation.hours;
+      sumGames += linked.playstation.gamesCount;
+      sumAchievements += linked.playstation.totalTrophies;
+    }
+    if (linked.steam) {
+      sumHours += linked.steam.hours;
+      sumGames += linked.steam.gamesCount;
+      sumAchievements += linked.steam.totalAchievements;
+    }
+    if (linked.xbox) {
+      sumHours += linked.xbox.hours;
+      sumGames += linked.xbox.gamesCount;
+      sumAchievements += linked.xbox.totalAchievements;
+    }
+
+    saveUserChanges({
+      linkedGamingAccounts: linked,
+      totalHours: sumHours > 0 ? `${sumHours.toLocaleString('nl-NL')}h` : '0h',
+      gamesCount: sumGames > 0 ? sumGames.toLocaleString('nl-NL') : '0',
+      achievementsCount: sumAchievements > 0 ? sumAchievements.toLocaleString('nl-NL') : '0',
+    });
+  };
+
   // Server: Send Channel Message
-  const handleSendChannelMessage = (msgText: string) => {
-    if (!currentUser || !msgText.trim()) return;
+  const handleSendChannelMessage = (
+    msgText: string,
+    replyTo?: { id: string; sender: string; text: string },
+    attachment?: { id: string; type: 'image' | 'clip'; url: string; name?: string }
+  ) => {
+    if (!currentUser || (!msgText.trim() && !attachment)) return;
 
     const newMsg: ChannelMessage = {
       id: 'm_' + Date.now(),
@@ -250,6 +555,8 @@ export default function App() {
       avatar: currentUser.avatar,
       text: msgText.trim(),
       time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      replyTo,
+      attachments: attachment ? [attachment] : undefined,
     };
 
     const updatedServers = servers.map((srv) => {
@@ -268,6 +575,7 @@ export default function App() {
 
     setServers(updatedServers);
     saveUserChanges({ servers: updatedServers });
+    discordAudio.playMessagePing();
   };
 
   // Server: Create Server
@@ -277,14 +585,17 @@ export default function App() {
       id: 's_' + Date.now(),
       name,
       icon: icon || '🎮',
-      channels: [{ id: defaultChanId, name: 'algemeen' }],
+      channels: [
+        { id: defaultChanId, name: 'algemeen' },
+        { id: 'c_voice_1', name: 'gaming-chat' },
+      ],
       messages: {
         [defaultChanId]: [
           {
             id: 'm_welcome',
             sender: currentUser?.username || 'GamerHub',
             avatar: currentUser?.avatar || '',
-            text: `Welkom op de gloednieuwe ${name} server!`,
+            text: `Welkom op de gloednieuwe ${name} server! Sluit je aan bij discussies of drop in een voice channel.`,
             time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
           },
         ],
@@ -329,25 +640,57 @@ export default function App() {
     saveUserChanges({ servers: updated });
   };
 
-  // Friends: Add Friend
-  const handleAddFriend = (friendName: string) => {
-    const cleanName = friendName.trim();
-    const hasTag = cleanName.includes('#');
-    const finalName = hasTag ? cleanName : `${cleanName}#${Math.floor(1000 + Math.random() * 9000)}`;
+  // Friends: Add Friend (supports GamerTag or pasted invite URL)
+  const handleAddFriend = (nameOrLink: string) => {
+    let finalName = nameOrLink.trim();
+    if (finalName.includes('?invite=')) {
+      try {
+        const url = new URL(finalName);
+        const inv = url.searchParams.get('invite');
+        if (inv) finalName = decodeURIComponent(inv);
+      } catch {
+        const match = finalName.match(/\?invite=([^&]+)/);
+        if (match) finalName = decodeURIComponent(match[1]);
+      }
+    }
 
+    const hasTag = finalName.includes('#');
+    const assignedName = hasTag
+      ? finalName
+      : `${finalName}#${Math.floor(1000 + Math.random() * 9000)}`;
+
+    const now = Date.now();
     const newFr: Friend = {
-      id: 'f_' + Date.now(),
-      name: finalName,
+      id: 'f_' + now,
+      name: assignedName,
       status: 'online',
       game: 'GamerHub Lid',
-      avatar: `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(finalName)}`,
+      avatar: `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(assignedName)}`,
       isBlocked: false,
+      lastActiveTimestamp: now,
+      lastSeen: 'Nu actief',
     };
 
     const updated = [...friends, newFr];
     setFriends(updated);
     setActiveFriend(newFr);
-    saveUserChanges({ friends: updated });
+
+    // Create confirmation notification
+    const notif: UserAppNotification = {
+      id: 'notif_fr_' + Date.now(),
+      type: 'friend_request',
+      title: 'Vriend toegevoegd!',
+      body: `Je bent nu vrienden met ${assignedName}. Stuur een bericht of start een voice call.`,
+      fromUser: { username: assignedName, avatar: newFr.avatar },
+      timestamp: Date.now(),
+      timeString: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      read: false,
+      actionData: { friendId: newFr.id },
+    };
+    const nextNotifs = [notif, ...notifications];
+    setNotifications(nextNotifs);
+
+    saveUserChanges({ friends: updated, notifications: nextNotifs });
   };
 
   // Friends: Toggle Block
@@ -371,8 +714,13 @@ export default function App() {
   };
 
   // Friends: Send Direct Message
-  const handleSendDm = (friendId: string, text: string) => {
-    if (!currentUser || !text.trim()) return;
+  const handleSendDm = (
+    friendId: string,
+    text: string,
+    replyTo?: { id: string; sender: string; text: string },
+    attachment?: { id: string; type: 'image' | 'clip'; url: string; name?: string }
+  ) => {
+    if (!currentUser || (!text.trim() && !attachment)) return;
 
     const msgs = dmHistory[friendId] || [];
     const newMsg: ChannelMessage = {
@@ -381,10 +729,14 @@ export default function App() {
       avatar: currentUser.avatar,
       text: text.trim(),
       time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      replyTo,
+      attachments: attachment ? [attachment] : undefined,
     };
 
     const updatedHistory = { ...dmHistory, [friendId]: [...msgs, newMsg] };
     setDmHistory(updatedHistory);
+    saveUserChanges({ dmHistory: updatedHistory });
+    discordAudio.playMessagePing();
   };
 
   // Connections: Add Connection
@@ -417,7 +769,7 @@ export default function App() {
       platform,
       handle,
       verified: true,
-      details: 'Geverifieerd account',
+      details: 'Geverifieerd gaming account',
       icon: icons[platform] || '🌐',
       color: colors[platform] || 'bg-slate-800',
     };
@@ -434,32 +786,54 @@ export default function App() {
     saveUserChanges({ connections: updated });
   };
 
-  // Quick Seed Helpers
-  const handleLoadStarterServers = () => {
-    setServers(STARTER_SERVERS);
-    setActiveServerId(STARTER_SERVERS[0].id);
-    setActiveChannelId(STARTER_SERVERS[0].channels[0].id);
-    saveUserChanges({ servers: STARTER_SERVERS });
+  // Discord Calling handlers
+  const handleStartVoiceCall = (friend: Friend) => {
+    setActiveCall({
+      isOpen: true,
+      type: 'voice',
+      friend,
+      isIncoming: false,
+    });
   };
 
-  const handleLoadStarterFriends = () => {
-    setFriends(STARTER_FRIENDS);
-    setActiveFriend(STARTER_FRIENDS[0]);
-    saveUserChanges({ friends: STARTER_FRIENDS });
+  const handleStartVideoCall = (friend: Friend) => {
+    setActiveCall({
+      isOpen: true,
+      type: 'video',
+      friend,
+      isIncoming: false,
+    });
   };
 
-  const handleLoadStarterConnections = () => {
-    setConnections(STARTER_CONNECTIONS);
-    saveUserChanges({ connections: STARTER_CONNECTIONS });
+  // Handle clicking on notification action
+  const handleNotificationAction = (notif: UserAppNotification) => {
+    if (notif.actionData?.friendId) {
+      const targetFriend = friends.find((f) => f.id === notif.actionData?.friendId);
+      if (targetFriend) {
+        setActiveFriend(targetFriend);
+        setActiveTab('friends');
+        if (notif.type === 'call') {
+          handleStartVoiceCall(targetFriend);
+        }
+      }
+    }
   };
 
-  // If not logged in, show Auth Screen
+  const handleClearAllNotifications = () => {
+    setNotifications([]);
+    saveUserChanges({ notifications: [] });
+  };
+
+  const unreadNotifCount = notifications.filter((n) => !n.read).length;
+
+  // If not logged in, render real Auth Screen with email & password persistence
   if (!currentUser) {
     return (
       <AuthScreen
         onLogin={handleLogin}
+        onVerify2FA={handleVerify2FA}
         onRegister={handleRegister}
-        onDemoLogin={handleDemoLogin}
+        savedAccounts={usersList}
         authError={authError}
         setAuthError={setAuthError}
       />
@@ -469,19 +843,31 @@ export default function App() {
   return (
     <div className="flex flex-col md:flex-row h-screen w-screen bg-slate-950 text-slate-100 overflow-hidden select-none font-sans">
       {/* Mobile Top Header */}
-      <Header currentUser={currentUser} onOpenSettings={() => setActiveTab('settings')} />
+      <Header
+        currentUser={currentUser}
+        onOpenSettings={() => setActiveTab('settings')}
+        unreadNotifCount={unreadNotifCount}
+        onOpenNotifications={() => setIsNotificationCenterOpen(true)}
+      />
 
-      {/* Main Sidebar Navigation */}
-      <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} currentUser={currentUser} />
+      {/* Main Sidebar Navigation with unread notification bell */}
+      <Sidebar
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+        currentUser={currentUser}
+        unreadDmCount={0}
+        unreadNotifCount={unreadNotifCount}
+        onOpenNotifications={() => setIsNotificationCenterOpen(true)}
+      />
 
       {/* Main Content Area */}
       <main className="flex-1 flex overflow-hidden relative">
-        {activeTab === 'news' && (
-          <NewsTab
-            news={liveNews}
-            loading={loadingNews}
-            onRefresh={fetchLiveNews}
-            lastUpdated={lastUpdatedNews}
+        {activeTab === 'dashboard' && (
+          <DashboardTab
+            currentUser={currentUser}
+            onLinkPlatform={handleLinkPlatform}
+            onNavigateToAchievements={() => setActiveTab('achievements')}
+            onOpenSettings={() => setActiveTab('settings')}
           />
         )}
 
@@ -496,7 +882,6 @@ export default function App() {
             onDeleteServer={handleDeleteServer}
             onAddChannel={handleAddChannel}
             onSendMessage={handleSendChannelMessage}
-            onLoadStarterServers={handleLoadStarterServers}
             currentUser={currentUser}
           />
         )}
@@ -511,8 +896,28 @@ export default function App() {
             onAddFriend={handleAddFriend}
             onToggleBlockFriend={handleToggleBlockFriend}
             onDeleteFriend={handleDeleteFriend}
-            onLoadStarterFriends={handleLoadStarterFriends}
+            onStartVoiceCall={handleStartVoiceCall}
+            onStartVideoCall={handleStartVideoCall}
+            onViewFriendProfile={(fr) => setInspectedFriend(fr)}
             currentUser={currentUser}
+          />
+        )}
+
+        {activeTab === 'achievements' && (
+          <AchievementsTab
+            currentUser={currentUser}
+            onLinkPlatform={handleLinkPlatform}
+            onUnlinkPlatform={handleUnlinkPlatform}
+          />
+        )}
+
+        {activeTab === 'news' && (
+          <NewsTab
+            news={liveNews}
+            loading={loadingNews}
+            onRefresh={() => fetchLiveNews(false)}
+            lastUpdated={lastUpdatedNews}
+            hasNewIncoming={hasNewIncoming}
           />
         )}
 
@@ -521,19 +926,76 @@ export default function App() {
             connections={connections}
             onAddConnection={handleAddConnection}
             onDeleteConnection={handleDeleteConnection}
-            onLoadStarterConnections={handleLoadStarterConnections}
           />
         )}
 
         {activeTab === 'settings' && (
           <SettingsTab
             currentUser={currentUser}
-            onSaveProfile={saveUserChanges}
+            onSaveProfile={(updated) => saveUserChanges(updated)}
             onLogout={handleLogout}
             onDeleteAccount={handleDeleteAccount}
+            onResetAllStatsToZero={() =>
+              saveUserChanges({
+                totalHours: '0h',
+                gamesCount: '0',
+                achievementsCount: '0',
+                linkedGamingAccounts: {},
+              })
+            }
           />
         )}
       </main>
+
+      {/* Floating In-App Realtime Notification Toast */}
+      <NotificationToast
+        notification={activeToastNotification}
+        onClose={() => setActiveToastNotification(null)}
+        onAction={handleNotificationAction}
+      />
+
+      {/* Notification Center Modal */}
+      <NotificationCenterModal
+        isOpen={isNotificationCenterOpen}
+        onClose={() => setIsNotificationCenterOpen(false)}
+        notifications={notifications}
+        onClearAll={handleClearAllNotifications}
+        onNotificationClick={handleNotificationAction}
+      />
+
+      {/* Discord Call Modal (Voice / Video with ringtones & screen share) */}
+      {activeCall && activeCall.friend && (
+        <CallModal
+          isOpen={activeCall.isOpen}
+          type={activeCall.type}
+          friend={activeCall.friend}
+          currentUser={currentUser}
+          isIncoming={activeCall.isIncoming}
+          onEndCall={() => setActiveCall(null)}
+        />
+      )}
+
+      {/* Friend Profile Inspection Modal */}
+      {inspectedFriend && (
+        <FriendProfileModal
+          isOpen={Boolean(inspectedFriend)}
+          friend={inspectedFriend}
+          onClose={() => setInspectedFriend(null)}
+          onStartVoiceCall={() => {
+            handleStartVoiceCall(inspectedFriend);
+            setInspectedFriend(null);
+          }}
+          onStartVideoCall={() => {
+            handleStartVideoCall(inspectedFriend);
+            setInspectedFriend(null);
+          }}
+          onStartChat={() => {
+            setActiveFriend(inspectedFriend);
+            setActiveTab('friends');
+            setInspectedFriend(null);
+          }}
+        />
+      )}
     </div>
   );
 }

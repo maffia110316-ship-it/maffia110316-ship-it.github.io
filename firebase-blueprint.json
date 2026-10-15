@@ -1,0 +1,106 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "GamerHub user profile with gaming accounts, stats, and 2FA settings",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "username": { "type": "string" },
+        "email": { "type": "string" },
+        "avatar": { "type": "string" },
+        "banner": { "type": "string" },
+        "bio": { "type": "string" },
+        "totalHours": { "type": "string" },
+        "gamesCount": { "type": "string" },
+        "achievementsCount": { "type": "string" },
+        "twoFactorEnabled": { "type": "boolean" },
+        "inviteCode": { "type": "string" },
+        "status": { "type": "string" },
+        "currentGame": { "type": "string" }
+      },
+      "required": ["uid", "username", "email"]
+    },
+    "DirectMessage": {
+      "title": "DirectMessage",
+      "description": "Direct message between two gamers",
+      "type": "object",
+      "properties": {
+        "conversationId": { "type": "string" },
+        "senderId": { "type": "string" },
+        "senderName": { "type": "string" },
+        "senderAvatar": { "type": "string" },
+        "recipientId": { "type": "string" },
+        "text": { "type": "string" },
+        "time": { "type": "string" },
+        "timestamp": { "type": "string" }
+      },
+      "required": ["conversationId", "senderId", "recipientId", "text"]
+    },
+    "CommunityServer": {
+      "title": "CommunityServer",
+      "description": "Community gaming server with channels",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "icon": { "type": "string" },
+        "ownerId": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "name", "ownerId"]
+    },
+    "ServerMessage": {
+      "title": "ServerMessage",
+      "description": "Chat message inside a server channel",
+      "type": "object",
+      "properties": {
+        "serverId": { "type": "string" },
+        "channelId": { "type": "string" },
+        "senderId": { "type": "string" },
+        "senderName": { "type": "string" },
+        "senderAvatar": { "type": "string" },
+        "text": { "type": "string" },
+        "time": { "type": "string" },
+        "timestamp": { "type": "string" }
+      },
+      "required": ["serverId", "channelId", "senderId", "text"]
+    },
+    "CallSession": {
+      "title": "CallSession",
+      "description": "Live audio or video call signaling session",
+      "type": "object",
+      "properties": {
+        "callerId": { "type": "string" },
+        "callerName": { "type": "string" },
+        "receiverId": { "type": "string" },
+        "status": { "type": "string" },
+        "type": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["callerId", "receiverId", "status"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "Public and private gamer profiles"
+    },
+    "/directMessages/{messageId}": {
+      "schema": "DirectMessage",
+      "description": "Direct chat messages between gamers"
+    },
+    "/communityServers/{serverId}": {
+      "schema": "CommunityServer",
+      "description": "Community servers"
+    },
+    "/serverMessages/{messageId}": {
+      "schema": "ServerMessage",
+      "description": "Server channel messages"
+    },
+    "/callSessions/{callId}": {
+      "schema": "CallSession",
+      "description": "Real-time call sessions"
+    }
+  }
+}
