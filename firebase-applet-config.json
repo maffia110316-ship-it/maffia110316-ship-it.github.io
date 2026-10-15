@@ -1,12 +1,12 @@
 {
-  "projectId": "rational-faculty-bc70r",
-  "appId": "1:201007268937:web:36e46873d6d90e39c5eb98",
-  "apiKey": "AIzaSyDHJ-mw5gHaUazP5GqaLZW5iHpZ3CWrEDs",
-  "authDomain": "rational-faculty-bc70r.firebaseapp.com",
+  "projectId": "gen-lang-client-0995975770",
+  "appId": "1:1057192115384:web:04970ee23cc02b97c1884d",
+  "apiKey": "AIzaSyC5iamJuYBQVXBdZsjSHar64eAYvZPpHgs",
+  "authDomain": "gen-lang-client-0995975770.firebaseapp.com",
   "firestoreDatabaseId": "ai-studio-maffia110316ship-9e018ad1-a2c6-4800-a089-ce329d674efa",
-  "storageBucket": "rational-faculty-bc70r.firebasestorage.app",
-  "messagingSenderId": "201007268937",
+  "storageBucket": "gen-lang-client-0995975770.firebasestorage.app",
+  "messagingSenderId": "1057192115384",
   "measurementId": "",
-  "oAuthClientId": "201007268937-7aaepoefmfjpspm4ao89r9bgf3k7qooe.apps.googleusercontent.com",
+  "oAuthClientId": "1057192115384-o3oh3svteuoe7b9jjd8h2mlp4r6gqrra.apps.googleusercontent.com",
   "recaptchaSiteKey": ""
 }

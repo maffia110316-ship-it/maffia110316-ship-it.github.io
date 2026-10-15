@@ -8,6 +8,7 @@ import {
   Link2,
   Settings,
   Bell,
+  Sparkles,
 } from 'lucide-react';
 import { User, AppTab } from '../types';
 
@@ -18,6 +19,7 @@ interface SidebarProps {
   unreadDmCount?: number;
   unreadNotifCount?: number;
   onOpenNotifications?: () => void;
+  onOpenBetaTester?: () => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -27,6 +29,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   unreadDmCount = 0,
   unreadNotifCount = 0,
   onOpenNotifications,
+  onOpenBetaTester,
 }) => {
   const tabs = [
     {
@@ -111,7 +114,20 @@ export const Sidebar: React.FC<SidebarProps> = ({
       </div>
 
       {/* Desktop Bottom Notification Bell & User Mini Profile */}
-      <div className="hidden md:flex mt-auto flex-col items-center space-y-3 pt-2">
+      <div className="hidden md:flex mt-auto flex-col items-center space-y-2.5 pt-2">
+        {/* Beta Tester Button */}
+        {onOpenBetaTester && (
+          <button
+            type="button"
+            onClick={onOpenBetaTester}
+            className="p-2.5 rounded-2xl bg-gradient-to-tr from-purple-600/30 to-indigo-600/30 hover:from-purple-600 hover:to-indigo-600 text-indigo-300 hover:text-white transition shadow-sm border border-indigo-500/40 group relative"
+            title="Beta Tester Programma (Mensen Uitnodigen)"
+          >
+            <Sparkles className="w-4 h-4" />
+            <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-pink-500 rounded-full animate-ping" />
+          </button>
+        )}
+
         {/* Notification Bell */}
         <button
           type="button"

@@ -7,6 +7,7 @@ interface HeaderProps {
   onOpenSettings: () => void;
   unreadNotifCount?: number;
   onOpenNotifications?: () => void;
+  onOpenBetaTester?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -14,20 +15,31 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenSettings,
   unreadNotifCount = 0,
   onOpenNotifications,
+  onOpenBetaTester,
 }) => {
   return (
-    <header className="md:hidden h-14 bg-slate-900 border-b border-slate-800 px-4 flex items-center justify-between z-30 shrink-0">
-      <div className="flex items-center space-x-2.5">
+    <header className="md:hidden h-14 bg-slate-900 border-b border-slate-800 px-3 flex items-center justify-between z-30 shrink-0">
+      <div className="flex items-center space-x-2">
         <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-indigo-600 via-purple-600 to-pink-500 flex items-center justify-center font-black text-white text-xs shadow-md">
           GH
         </div>
         <div className="flex flex-col">
-          <span className="font-extrabold text-sm text-white tracking-tight">GamerHub Ultra</span>
-          <span className="text-[10px] text-slate-400 font-medium">Gaming Platform</span>
+          <span className="font-extrabold text-xs text-white tracking-tight">GamerHub</span>
+          <span className="text-[9px] text-slate-400 font-medium">Ultra Gaming</span>
         </div>
       </div>
 
-      <div className="flex items-center space-x-2">
+      <div className="flex items-center space-x-1.5">
+        {onOpenBetaTester && (
+          <button
+            onClick={onOpenBetaTester}
+            className="px-2.5 py-1 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white rounded-xl text-[10px] font-black uppercase tracking-wider flex items-center space-x-1 shadow-md shadow-indigo-600/30 transition animate-pulse"
+            title="Beta Tester Uitnodigen"
+          >
+            <span>🚀</span>
+            <span>Beta</span>
+          </button>
+        )}
         <button
           type="button"
           onClick={onOpenNotifications}

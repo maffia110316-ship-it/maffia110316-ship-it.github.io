@@ -22,6 +22,7 @@ import {
   Reply,
   X,
   Image as ImageIcon,
+  ChevronLeft,
 } from 'lucide-react';
 import { Friend, ChannelMessage, User, MessageAttachment } from '../types';
 import { ConfirmModal } from './ConfirmModal';
@@ -278,7 +279,11 @@ export const FriendsTab: React.FC<FriendsTabProps> = ({
     <div className="flex-1 flex overflow-hidden w-full h-full bg-[#1e1f22] text-[#dbdee1] font-sans select-none">
       
       {/* 1. FRIENDS LIST SIDEBAR */}
-      <div className="w-80 md:w-88 bg-[#2b2d31] border-r border-[#232428] flex flex-col shrink-0">
+      <div
+        className={`${
+          activeFriend ? 'hidden md:flex' : 'flex'
+        } w-full md:w-80 md:w-88 bg-[#2b2d31] border-r border-[#232428] flex-col shrink-0 h-full overflow-hidden`}
+      >
         
         {/* Top Header: Title & Add Friend Button */}
         <div className="p-4 border-b border-[#232428] flex items-center justify-between">
@@ -466,12 +471,25 @@ export const FriendsTab: React.FC<FriendsTabProps> = ({
       </div>
 
       {/* 2. DIRECT MESSAGES PANEL (DISCORD STYLE) */}
-      <div className="flex-1 flex flex-col bg-[#313338] overflow-hidden">
+      <div
+        className={`${
+          activeFriend ? 'flex' : 'hidden md:flex'
+        } flex-1 flex flex-col bg-[#313338] overflow-hidden w-full h-full`}
+      >
         {activeFriend && activeFriendStatus ? (
           <>
             {/* DM Header with detailed live status and Discord call buttons */}
-            <div className="h-12 border-b border-[#232428] px-4 flex items-center justify-between shrink-0 bg-[#313338] shadow-sm">
-              <div className="flex items-center space-x-3">
+            <div className="h-12 border-b border-[#232428] px-3 md:px-4 flex items-center justify-between shrink-0 bg-[#313338] shadow-sm">
+              <div className="flex items-center space-x-2 md:space-x-3">
+                {/* Mobile Back Button to Friends List */}
+                <button
+                  onClick={() => setActiveFriend(null)}
+                  className="md:hidden p-1.5 rounded-lg bg-[#2b2d31] text-white hover:bg-[#35373c] transition mr-0.5"
+                  title="Terug naar vrienden"
+                >
+                  <ChevronLeft className="w-5 h-5" />
+                </button>
+
                 <div className="relative">
                   <img
                     src={activeFriend.avatar}

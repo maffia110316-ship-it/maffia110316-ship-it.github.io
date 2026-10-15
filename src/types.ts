@@ -23,6 +23,7 @@ export interface ChannelMessage {
 export interface Channel {
   id: string;
   name: string;
+  type?: 'text' | 'voice';
 }
 
 export interface Server {
@@ -30,6 +31,7 @@ export interface Server {
   name: string;
   icon: string;
   channels: Channel[];
+  voiceChannels?: Channel[];
   messages: Record<string, ChannelMessage[]>;
 }
 
@@ -166,6 +168,7 @@ export interface User {
   achievementsCount: string;
   inviteCode?: string;
   twoFactorEnabled?: boolean;
+  isBetaTester?: boolean;
   servers: Server[];
   friends: Friend[];
   connections: Connection[];

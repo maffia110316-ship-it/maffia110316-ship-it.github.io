@@ -25,12 +25,19 @@ import { CallModal } from './components/CallModal';
 import { FriendProfileModal } from './components/FriendProfileModal';
 import { NotificationToast } from './components/NotificationToast';
 import { NotificationCenterModal } from './components/NotificationCenterModal';
-import { testFirestoreConnection } from './firebase';
+import { BetaTesterModal } from './components/BetaTesterModal';
+import { auth, testFirestoreConnection } from './firebase';
+import { sendPasswordResetEmail, createUserWithEmailAndPassword } from 'firebase/auth';
+import { sendRealPasswordResetEmail, sendRealTwoFactorEmail } from './services/emailService';
 import {
   persistUserAccount,
   fetchUserAccount,
   subscribeToUserAccount,
+  fetchUserByIdentifier,
+  updateUserPassword,
+  sendRealtimeNotification,
 } from './services/userService';
+import { googleSignIn, logoutGoogle } from './services/googleAuth';
 import { discordAudio } from './utils/discordAudio';
 
 export default function App() {
@@ -105,6 +112,9 @@ export default function App() {
 
   // Friend Profile inspection state
   const [inspectedFriend, setInspectedFriend] = useState<Friend | null>(null);
+
+  // Beta Tester modal state
+  const [showBetaModal, setShowBetaModal] = useState(false);
 
   // Test Firestore on boot
   useEffect(() => {
@@ -300,6 +310,8 @@ export default function App() {
       const code = Math.floor(100000 + Math.random() * 900000).toString();
       setPending2FAUser(userToAuth);
       setExpected2FACode(code);
+      // Send real email with 2FA code directly to user's inbox
+      sendRealTwoFactorEmail(userToAuth.email, code, userToAuth.username).catch(console.warn);
       return { success: false, requires2FA: true, user: userToAuth, tempCode: code };
     }
 
@@ -390,6 +402,13 @@ export default function App() {
     // Save to Firestore and local storage
     await persistUserAccount(newUser);
 
+    // Also register in Firebase Auth to guarantee genuine Firebase email dispatch
+    try {
+      await createUserWithEmailAndPassword(auth, regEmail, pass);
+    } catch (fbAuthErr: any) {
+      console.warn('Firebase Auth user registration note:', fbAuthErr.code);
+    }
+
     const updatedUsers = [...usersList, newUser];
     setUsersList(updatedUsers);
 
@@ -403,12 +422,196 @@ export default function App() {
     return true;
   };
 
+  // Auth: Google / Gmail OAuth Sign-In
+  const handleGoogleSignIn = async (): Promise<boolean> => {
+    setAuthError('');
+    try {
+      const res = await googleSignIn();
+      if (!res || !res.user) {
+        setAuthError('Google aanmelding mislukt.');
+        return false;
+      }
+      const gUser = res.user;
+      const email = gUser.email || '';
+      if (!email) {
+        setAuthError('Geen e-mailadres gekoppeld aan Google account.');
+        return false;
+      }
+
+      // Check if user account already exists in remote Firestore or local
+      let userAccount = usersList.find((u) => u.email.toLowerCase() === email.toLowerCase());
+      if (!userAccount) {
+        const remoteAcc = await fetchUserAccount(email);
+        if (remoteAcc) {
+          userAccount = remoteAcc;
+        }
+      }
+
+      if (userAccount) {
+        // Existing user - log them in directly and restore their friends, DMs, servers, and profile!
+        setCurrentUser(userAccount);
+        if (userAccount.dmHistory) setDmHistory(userAccount.dmHistory);
+        if (userAccount.notifications) setNotifications(userAccount.notifications);
+        setServers(userAccount.servers || []);
+        setFriends(userAccount.friends || []);
+        setConnections(userAccount.connections || []);
+        await persistUserAccount(userAccount);
+        setAuthError('');
+        return true;
+      }
+
+      // Brand new user via Google/Gmail:
+      // STRICT RULE: Starts with 0 servers, 0 friends, 0 hours, 0 games, 0 achievements!
+      const newGamer: User = {
+        username: gUser.displayName || email.split('@')[0] || 'Gamer',
+        email: email,
+        avatar: gUser.photoURL || ANIMATED_AVATAR_PRESETS[0].url,
+        banner: ANIMATED_BANNER_PRESETS[0].url,
+        bio: 'Google & Gmail Gamer • 0 servers • 0 vrienden',
+        totalHours: '0h',
+        gamesCount: '0',
+        achievementsCount: '0',
+        inviteCode: 'gh_' + Math.random().toString(36).substring(2, 8),
+        twoFactorEnabled: false,
+        servers: [],
+        friends: [],
+        connections: [],
+        dmHistory: {},
+        notifications: [
+          {
+            id: 'notif_welcome_' + Date.now(),
+            type: 'system',
+            title: 'Welkom via Google & Gmail!',
+            body: 'Je account start met 0 servers en 0 vrienden. Koppel je PlayStation, Xbox of Steam om je uren en prestaties in te laden!',
+            timestamp: Date.now(),
+            timeString: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            read: false,
+          },
+        ],
+      };
+
+      await persistUserAccount(newGamer);
+      setUsersList((prev) => [...prev, newGamer]);
+      setCurrentUser(newGamer);
+      setServers([]);
+      setFriends([]);
+      setConnections([]);
+      setDmHistory({});
+      setNotifications(newGamer.notifications || []);
+      setAuthError('');
+      return true;
+    } catch (err: any) {
+      console.error('Google sign in error:', err);
+      if (err?.code === 'auth/popup-closed-by-user') {
+        setAuthError('Google aanmeldingsvenster gesloten.');
+      } else {
+        setAuthError(err?.message || 'Google aanmelding mislukt. Probeer het opnieuw.');
+      }
+      return false;
+    }
+  };
+
   // Auth: Logout
   const handleLogout = () => {
+    logoutGoogle();
     setCurrentUser(null);
     localStorage.removeItem('gh_v5_session');
     setActiveFriend(null);
     setActiveCall(null);
+  };
+
+  // Auth: Request Password Reset Code
+  const handleRequestPasswordReset = async (
+    identifier: string
+  ): Promise<{ success: boolean; userEmail?: string; tempCode?: string; error?: string }> => {
+    setAuthError('');
+    const cleanId = identifier.trim();
+    if (!cleanId) {
+      return { success: false, error: 'Vul een geldig e-mailadres of gebruikersnaam in.' };
+    }
+
+    // 1. Check local users list
+    let target = usersList.find(
+      (u) =>
+        u.email.toLowerCase() === cleanId.toLowerCase() ||
+        u.username.toLowerCase() === cleanId.toLowerCase()
+    );
+
+    // 2. Check remote Firestore
+    if (!target) {
+      try {
+        const remote = await fetchUserByIdentifier(cleanId);
+        if (remote) target = remote;
+      } catch (err) {
+        console.warn('Firestore lookup error during reset:', err);
+      }
+    }
+
+    if (!target) {
+      return {
+        success: false,
+        error: 'Geen GamerHub account gevonden met deze gegevens. Controleer je invoer of registreer een nieuw account.',
+      };
+    }
+
+    const tempCode = Math.floor(100000 + Math.random() * 900000).toString();
+
+    // Send real-time notification to user account in Firestore
+    try {
+      await sendRealtimeNotification(target.email, {
+        id: 'pw_code_' + Date.now(),
+        type: 'system',
+        title: 'Herstelcode Wachtwoord',
+        body: `Je 6-cijferige verificatiecode is: ${tempCode}. Gebruik deze code om je wachtwoord opnieuw in te stellen.`,
+        timestamp: Date.now(),
+        timeString: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        read: false,
+      });
+    } catch {
+      // ignore
+    }
+
+    // Send 100% genuine password reset email to their inbox via Firebase Auth
+    if (target.email.includes('@')) {
+      try {
+        await sendRealPasswordResetEmail(target.email);
+      } catch (err) {
+        console.warn('Real password reset email dispatch warning:', err);
+      }
+    }
+
+    return {
+      success: true,
+      userEmail: target.email,
+      tempCode,
+    };
+  };
+
+  // Auth: Confirm Password Reset with new password
+  const handleConfirmPasswordReset = async (
+    userEmail: string,
+    newPass: string
+  ): Promise<boolean> => {
+    setAuthError('');
+    try {
+      const ok = await updateUserPassword(userEmail, newPass);
+      if (!ok) {
+        setAuthError('Wachtwoord wijzigen mislukt in de database.');
+        return false;
+      }
+
+      // Update in state
+      setUsersList((prev) =>
+        prev.map((u) =>
+          u.email.toLowerCase() === userEmail.toLowerCase() ? { ...u, password: newPass } : u
+        )
+      );
+
+      return true;
+    } catch {
+      setAuthError('Er is een fout opgetreden bij het opslaan van het nieuwe wachtwoord.');
+      return false;
+    }
   };
 
   // Auth: Delete Account
@@ -629,6 +832,124 @@ export default function App() {
     saveUserChanges({ servers: updated });
   };
 
+  // Server: Update Server (Rename, Icon, etc.)
+  const handleUpdateServer = (updatedServer: Server) => {
+    const updated = servers.map((srv) => (srv.id === updatedServer.id ? updatedServer : srv));
+    setServers(updated);
+    saveUserChanges({ servers: updated });
+  };
+
+  // Server: Delete Channel
+  const handleDeleteChannel = (serverId: string, channelId: string) => {
+    const updated = servers.map((srv) => {
+      if (srv.id === serverId) {
+        const remainingChannels = srv.channels.filter((c) => c.id !== channelId);
+        return {
+          ...srv,
+          channels:
+            remainingChannels.length > 0
+              ? remainingChannels
+              : [{ id: 'c_' + Date.now(), name: 'algemeen' }],
+        };
+      }
+      return srv;
+    });
+    setServers(updated);
+    if (activeChannelId === channelId) {
+      const current = updated.find((s) => s.id === serverId);
+      setActiveChannelId(current?.channels[0]?.id || '');
+    }
+    saveUserChanges({ servers: updated });
+  };
+
+  // Server: Update/Rename Channel
+  const handleUpdateChannel = (serverId: string, channelId: string, newName: string) => {
+    const cleanName = newName.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+    const updated = servers.map((srv) => {
+      if (srv.id === serverId) {
+        return {
+          ...srv,
+          channels: srv.channels.map((c) =>
+            c.id === channelId ? { ...c, name: cleanName || 'kanaal' } : c
+          ),
+        };
+      }
+      return srv;
+    });
+    setServers(updated);
+    saveUserChanges({ servers: updated });
+  };
+
+  // Server: Add Voice Channel / Voice Call Room
+  const handleAddVoiceChannel = (serverId: string, channelName: string) => {
+    const cleanName = channelName.trim();
+    const formattedName = cleanName.startsWith('🔊') ? cleanName : `🔊 ${cleanName}`;
+    const vcId = 'vc_' + Date.now();
+
+    const updated = servers.map((srv) => {
+      if (srv.id === serverId) {
+        const existing = srv.voiceChannels || [
+          { id: 'vc_1', name: '🔊 Algemeen Spraak', type: 'voice' as const },
+          { id: 'vc_2', name: '🔊 Gaming Squad Duo/Trio', type: 'voice' as const },
+          { id: 'vc_3', name: '🔊 Pro Scrims & Toernooien', type: 'voice' as const },
+        ];
+        return {
+          ...srv,
+          voiceChannels: [
+            ...existing,
+            { id: vcId, name: formattedName, type: 'voice' as const },
+          ],
+        };
+      }
+      return srv;
+    });
+    setServers(updated);
+    saveUserChanges({ servers: updated });
+  };
+
+  // Server: Delete Voice Channel
+  const handleDeleteVoiceChannel = (serverId: string, channelId: string) => {
+    const updated = servers.map((srv) => {
+      if (srv.id === serverId) {
+        const existing = srv.voiceChannels || [
+          { id: 'vc_1', name: '🔊 Algemeen Spraak', type: 'voice' as const },
+          { id: 'vc_2', name: '🔊 Gaming Squad Duo/Trio', type: 'voice' as const },
+          { id: 'vc_3', name: '🔊 Pro Scrims & Toernooien', type: 'voice' as const },
+        ];
+        const remaining = existing.filter((v) => v.id !== channelId);
+        return {
+          ...srv,
+          voiceChannels:
+            remaining.length > 0
+              ? remaining
+              : [{ id: 'vc_' + Date.now(), name: '🔊 Spraakkanaal', type: 'voice' as const }],
+        };
+      }
+      return srv;
+    });
+    setServers(updated);
+    saveUserChanges({ servers: updated });
+  };
+
+  // Server: Update Voice Channel
+  const handleUpdateVoiceChannel = (serverId: string, channelId: string, newName: string) => {
+    const formatted = newName.startsWith('🔊') ? newName : `🔊 ${newName}`;
+    const updated = servers.map((srv) => {
+      if (srv.id === serverId) {
+        const existing = srv.voiceChannels || [];
+        return {
+          ...srv,
+          voiceChannels: existing.map((v) =>
+            v.id === channelId ? { ...v, name: formatted } : v
+          ),
+        };
+      }
+      return srv;
+    });
+    setServers(updated);
+    saveUserChanges({ servers: updated });
+  };
+
   // Server: Delete Server
   const handleDeleteServer = (srvId: string) => {
     const updated = servers.filter((s) => s.id !== srvId);
@@ -833,6 +1154,9 @@ export default function App() {
         onLogin={handleLogin}
         onVerify2FA={handleVerify2FA}
         onRegister={handleRegister}
+        onGoogleSignIn={handleGoogleSignIn}
+        onRequestPasswordReset={handleRequestPasswordReset}
+        onConfirmPasswordReset={handleConfirmPasswordReset}
         savedAccounts={usersList}
         authError={authError}
         setAuthError={setAuthError}
@@ -848,6 +1172,7 @@ export default function App() {
         onOpenSettings={() => setActiveTab('settings')}
         unreadNotifCount={unreadNotifCount}
         onOpenNotifications={() => setIsNotificationCenterOpen(true)}
+        onOpenBetaTester={() => setShowBetaModal(true)}
       />
 
       {/* Main Sidebar Navigation with unread notification bell */}
@@ -858,6 +1183,7 @@ export default function App() {
         unreadDmCount={0}
         unreadNotifCount={unreadNotifCount}
         onOpenNotifications={() => setIsNotificationCenterOpen(true)}
+        onOpenBetaTester={() => setShowBetaModal(true)}
       />
 
       {/* Main Content Area */}
@@ -879,8 +1205,14 @@ export default function App() {
             setActiveServerId={setActiveServerId}
             setActiveChannelId={setActiveChannelId}
             onCreateServer={handleCreateServer}
+            onUpdateServer={handleUpdateServer}
             onDeleteServer={handleDeleteServer}
             onAddChannel={handleAddChannel}
+            onDeleteChannel={handleDeleteChannel}
+            onUpdateChannel={handleUpdateChannel}
+            onAddVoiceChannel={handleAddVoiceChannel}
+            onDeleteVoiceChannel={handleDeleteVoiceChannel}
+            onUpdateVoiceChannel={handleUpdateVoiceChannel}
             onSendMessage={handleSendChannelMessage}
             currentUser={currentUser}
           />
@@ -963,7 +1295,7 @@ export default function App() {
         onNotificationClick={handleNotificationAction}
       />
 
-      {/* Discord Call Modal (Voice / Video with ringtones & screen share) */}
+      {/* Discord Call Modal (Voice / Video with ringtones & screen share & in-call chat) */}
       {activeCall && activeCall.friend && (
         <CallModal
           isOpen={activeCall.isOpen}
@@ -972,6 +1304,8 @@ export default function App() {
           currentUser={currentUser}
           isIncoming={activeCall.isIncoming}
           onEndCall={() => setActiveCall(null)}
+          messages={dmHistory[activeCall.friend.id] || []}
+          onSendMessage={(text) => handleSendDm(activeCall.friend.id, text)}
         />
       )}
 
@@ -994,6 +1328,16 @@ export default function App() {
             setActiveTab('friends');
             setInspectedFriend(null);
           }}
+        />
+      )}
+
+      {/* Beta Tester Program Modal */}
+      {showBetaModal && (
+        <BetaTesterModal
+          isOpen={showBetaModal}
+          onClose={() => setShowBetaModal(false)}
+          currentUser={currentUser}
+          onUpdateUser={saveUserChanges}
         />
       )}
     </div>

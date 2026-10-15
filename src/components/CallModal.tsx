@@ -16,8 +16,11 @@ import {
   Maximize2,
   Minimize2,
   Music,
+  Send,
+  X,
+  MessageSquare,
 } from 'lucide-react';
-import { Friend, User } from '../types';
+import { Friend, User, ChannelMessage } from '../types';
 import { discordAudio } from '../utils/discordAudio';
 
 interface CallModalProps {
@@ -29,6 +32,8 @@ interface CallModalProps {
   onAccept?: () => void;
   onDecline?: () => void;
   onEndCall: () => void;
+  messages?: ChannelMessage[];
+  onSendMessage?: (text: string) => void;
 }
 
 export const CallModal: React.FC<CallModalProps> = ({
@@ -40,9 +45,13 @@ export const CallModal: React.FC<CallModalProps> = ({
   onAccept,
   onDecline,
   onEndCall,
+  messages = [],
+  onSendMessage,
 }) => {
   const [callStatus, setCallStatus] = useState<'ringing' | 'connected'>('ringing');
   const [callDuration, setCallDuration] = useState(0);
+  const [showInCallChat, setShowInCallChat] = useState(false);
+  const [inCallText, setInCallText] = useState('');
   const [isMuted, setIsMuted] = useState(false);
   const [isDeafened, setIsDeafened] = useState(false);
   const [isVideoOff, setIsVideoOff] = useState(type === 'voice');
@@ -354,8 +363,85 @@ export const CallModal: React.FC<CallModalProps> = ({
           </div>
         )}
 
+        {/* In-Call Text Chat Drawer */}
+        {showInCallChat && (
+          <div className="w-full bg-[#111214] border border-[#2b2d31] rounded-2xl p-3 mb-4 shadow-2xl animate-in slide-in-from-bottom duration-200 flex flex-col text-left max-h-64">
+            <div className="flex items-center justify-between pb-2 mb-2 border-b border-[#2b2d31]">
+              <div className="flex items-center space-x-2">
+                <MessageSquare className="w-4 h-4 text-[#5865f2]" />
+                <span className="text-xs font-black text-white">
+                  Tekstchat met {friend.name} tijdens oproep
+                </span>
+              </div>
+              <button
+                onClick={() => setShowInCallChat(false)}
+                className="text-slate-400 hover:text-white text-xs font-bold p-1"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Messages Scroll Feed */}
+            <div className="flex-1 overflow-y-auto space-y-2 p-1 max-h-36">
+              {messages.length === 0 ? (
+                <p className="text-xs text-slate-500 italic text-center py-2">
+                  Nog geen berichten gestuurd. Stuur een bericht tijdens de oproep!
+                </p>
+              ) : (
+                messages.slice(-8).map((m) => (
+                  <div
+                    key={m.id}
+                    className={`flex flex-col ${
+                      m.sender === currentUser.username ? 'items-end' : 'items-start'
+                    }`}
+                  >
+                    <div
+                      className={`max-w-[85%] px-3 py-1.5 rounded-xl text-xs ${
+                        m.sender === currentUser.username
+                          ? 'bg-[#5865f2] text-white rounded-br-none'
+                          : 'bg-[#2b2d31] text-[#dbdee1] rounded-bl-none'
+                      }`}
+                    >
+                      <span className="text-[10px] block opacity-75 font-semibold">
+                        {m.sender} • {m.time}
+                      </span>
+                      <p className="break-words">{m.text}</p>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
+            {/* Input bar */}
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (!inCallText.trim() || !onSendMessage) return;
+                onSendMessage(inCallText.trim());
+                setInCallText('');
+              }}
+              className="pt-2 flex items-center space-x-2"
+            >
+              <input
+                type="text"
+                value={inCallText}
+                onChange={(e) => setInCallText(e.target.value)}
+                placeholder={`Bericht naar ${friend.name}...`}
+                className="flex-1 bg-[#1e1f22] border border-[#2b2d31] rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-[#5865f2]"
+              />
+              <button
+                type="submit"
+                disabled={!inCallText.trim()}
+                className="bg-[#5865f2] hover:bg-[#4752c4] disabled:opacity-30 text-white font-bold p-2 rounded-xl text-xs transition shrink-0"
+              >
+                <Send className="w-3.5 h-3.5" />
+              </button>
+            </form>
+          </div>
+        )}
+
         {/* Discord Floating Bottom Action Bar */}
-        <div className="flex flex-wrap items-center justify-center gap-2.5 md:gap-3.5 mt-4 bg-[#111214] border border-[#2b2d31] px-5 py-3 rounded-2xl shadow-2xl">
+        <div className="flex flex-wrap items-center justify-center gap-2 md:gap-3 mt-4 bg-[#111214] border border-[#2b2d31] px-4 md:px-5 py-3 rounded-2xl shadow-2xl">
           {callStatus === 'ringing' && isIncoming ? (
             <>
               <button
@@ -375,10 +461,23 @@ export const CallModal: React.FC<CallModalProps> = ({
             </>
           ) : (
             <>
+              {/* In-Call Text Chat Button */}
+              <button
+                onClick={() => setShowInCallChat(!showInCallChat)}
+                className={`p-3 md:p-3.5 rounded-xl transition ${
+                  showInCallChat
+                    ? 'bg-[#5865f2] text-white shadow-lg shadow-[#5865f2]/40'
+                    : 'bg-[#2b2d31] hover:bg-[#313338] text-slate-300'
+                }`}
+                title={showInCallChat ? 'Chat sluiten' : 'Tekstchat openen in gesprek'}
+              >
+                <MessageSquare className="w-5 h-5" />
+              </button>
+
               {/* Camera toggle */}
               <button
                 onClick={() => setIsVideoOff(!isVideoOff)}
-                className={`p-3.5 rounded-xl transition ${
+                className={`p-3 md:p-3.5 rounded-xl transition ${
                   !isVideoOff
                     ? 'bg-indigo-600 text-white'
                     : 'bg-[#2b2d31] hover:bg-[#313338] text-slate-300'
@@ -391,7 +490,7 @@ export const CallModal: React.FC<CallModalProps> = ({
               {/* Screen Share toggle */}
               <button
                 onClick={() => setIsScreenSharing(!isScreenSharing)}
-                className={`p-3.5 rounded-xl transition ${
+                className={`p-3 md:p-3.5 rounded-xl transition ${
                   isScreenSharing
                     ? 'bg-emerald-600 text-white'
                     : 'bg-[#2b2d31] hover:bg-[#313338] text-slate-300'
@@ -404,7 +503,7 @@ export const CallModal: React.FC<CallModalProps> = ({
               {/* Microphone mute toggle */}
               <button
                 onClick={toggleMute}
-                className={`p-3.5 rounded-xl transition ${
+                className={`p-3 md:p-3.5 rounded-xl transition ${
                   isMuted
                     ? 'bg-red-600 text-white'
                     : 'bg-[#2b2d31] hover:bg-[#313338] text-slate-300'
@@ -417,7 +516,7 @@ export const CallModal: React.FC<CallModalProps> = ({
               {/* Headphones deafen toggle */}
               <button
                 onClick={toggleDeafen}
-                className={`p-3.5 rounded-xl transition ${
+                className={`p-3 md:p-3.5 rounded-xl transition ${
                   isDeafened
                     ? 'bg-red-600 text-white'
                     : 'bg-[#2b2d31] hover:bg-[#313338] text-slate-300'
@@ -430,7 +529,7 @@ export const CallModal: React.FC<CallModalProps> = ({
               {/* Soundboard Button */}
               <button
                 onClick={() => setShowSoundboard(!showSoundboard)}
-                className={`p-3.5 rounded-xl transition ${
+                className={`p-3 md:p-3.5 rounded-xl transition ${
                   showSoundboard
                     ? 'bg-indigo-600 text-white'
                     : 'bg-[#2b2d31] hover:bg-[#313338] text-slate-300'
@@ -457,7 +556,7 @@ export const CallModal: React.FC<CallModalProps> = ({
               {/* End Call / Disconnect */}
               <button
                 onClick={handleEndCall}
-                className="p-3.5 rounded-xl bg-red-600 hover:bg-red-500 text-white transition shadow-lg shadow-red-600/30 active:scale-95"
+                className="p-3 md:p-3.5 rounded-xl bg-red-600 hover:bg-red-500 text-white transition shadow-lg shadow-red-600/30 active:scale-95"
                 title="Ophangen / Verbreken"
               >
                 <PhoneOff className="w-5 h-5" />

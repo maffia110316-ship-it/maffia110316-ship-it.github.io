@@ -135,3 +135,73 @@ export const sendRealtimeNotification = async (
     console.warn('Failed to send notification via Firestore:', err);
   }
 };
+
+/**
+ * Find user by email or username (checks Firestore and localStorage)
+ */
+export const fetchUserByIdentifier = async (identifier: string): Promise<User | null> => {
+  if (!identifier) return null;
+  const cleanId = identifier.trim().toLowerCase();
+
+  // 1. Try local storage first
+  try {
+    const storedUsersJson = localStorage.getItem('gh_v5_users');
+    if (storedUsersJson) {
+      const storedUsers: User[] = JSON.parse(storedUsersJson);
+      const found = storedUsers.find(
+        (u) => u.email.toLowerCase() === cleanId || u.username.toLowerCase() === cleanId
+      );
+      if (found) return found;
+    }
+  } catch {
+    // ignore
+  }
+
+  // 2. Try Firestore by email doc ID
+  try {
+    const docId = getDocIdFromEmail(cleanId);
+    const userRef = doc(db, 'users', docId);
+    const snap = await getDoc(userRef);
+    if (snap.exists()) {
+      return snap.data() as User;
+    }
+  } catch {
+    // ignore
+  }
+
+  return null;
+};
+
+/**
+ * Update user password in Firestore & local storage
+ */
+export const updateUserPassword = async (email: string, newPass: string): Promise<boolean> => {
+  if (!email || !newPass) return false;
+  try {
+    const existing = await fetchUserAccount(email);
+    if (!existing) return false;
+
+    const updatedUser: User = {
+      ...existing,
+      password: newPass,
+      notifications: [
+        {
+          id: 'pw_reset_' + Date.now(),
+          type: 'system',
+          title: 'Wachtwoord Gewijzigd',
+          body: 'Je GamerHub wachtwoord is zojuist succesvol gewijzigd.',
+          timestamp: Date.now(),
+          timeString: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          read: false,
+        },
+        ...(existing.notifications || []),
+      ],
+    };
+
+    await persistUserAccount(updatedUser);
+    return true;
+  } catch (err) {
+    console.error('Fout bij bijwerken wachtwoord:', err);
+    return false;
+  }
+};
