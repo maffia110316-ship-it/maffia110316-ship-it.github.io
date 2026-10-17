@@ -30,6 +30,9 @@ export interface Server {
   id: string;
   name: string;
   icon: string;
+  owner?: string;
+  inviteCode?: string;
+  members?: string[];
   channels: Channel[];
   voiceChannels?: Channel[];
   messages: Record<string, ChannelMessage[]>;
@@ -38,6 +41,7 @@ export interface Server {
 export interface Friend {
   id: string;
   name: string;
+  email?: string;
   status: 'online' | 'offline' | 'afk' | 'dnd';
   game: string;
   avatar: string;
@@ -169,6 +173,8 @@ export interface User {
   inviteCode?: string;
   twoFactorEnabled?: boolean;
   isBetaTester?: boolean;
+  googleEmail?: string;
+  googleLinked?: boolean;
   servers: Server[];
   friends: Friend[];
   connections: Connection[];

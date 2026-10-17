@@ -26,7 +26,7 @@ export async function sendRealPasswordResetEmail(
     await sendPasswordResetEmail(auth, cleanEmail);
     return {
       success: true,
-      message: `Echte wachtwoord-herstelmail succesvol verzonden naar ${cleanEmail}!`,
+      message: `Echte GamerHub Ultra herstelmail succesvol verzonden naar ${cleanEmail}!`,
       method: 'firebase_smtp',
     };
   } catch (err: any) {
@@ -40,7 +40,7 @@ export async function sendRealPasswordResetEmail(
         await sendPasswordResetEmail(auth, cleanEmail);
         return {
           success: true,
-          message: `Echte wachtwoord-herstelmail succesvol verzonden naar ${cleanEmail}!`,
+          message: `Echte GamerHub Ultra herstelmail succesvol verzonden naar ${cleanEmail}!`,
           method: 'firebase_provisioned',
         };
       } catch (provisionErr: any) {
@@ -69,7 +69,7 @@ export async function sendRealPasswordResetEmail(
 
 /**
  * Sends a real 2-step verification (2FA) code to the user's email address.
- * If user signed in with Google OAuth, sends via Gmail API; otherwise sends via Firebase Auth notification.
+ * Sets the sender display name explicitly to 'GamerHub Ultra'.
  */
 export async function sendRealTwoFactorEmail(
   email: string,
@@ -89,22 +89,26 @@ export async function sendRealTwoFactorEmail(
   try {
     const accessToken = await getAccessToken();
     if (accessToken) {
+      const senderDisplayName = 'GamerHub Ultra';
       const subject = `🔐 GamerHub Ultra 2-Staps Verificatiecode: ${code}`;
       const body = [
         `Hallo ${username || 'Gamer'},`,
         '',
         `Je 2-staps verificatiecode voor GamerHub Ultra is:`,
         '',
+        `=================================`,
         `👉 ${code} 👈`,
+        `=================================`,
         '',
-        `Vul deze 6-cijferige code in op het inlogscherm om toegang te krijgen tot je GamerHub Ultra account.`,
+        `Vul deze 6-cijferige code in op het inlogscherm van GamerHub Ultra om toegang te krijgen.`,
         `Deze code is 10 minuten geldig. Deel deze code nooit met anderen.`,
         '',
         `Met vriendelijke groet,`,
-        `Het GamerHub Ultra Beveiligingsteam`,
+        `Het GamerHub Ultra Team`,
       ].join('\r\n');
 
       const rawMessage = [
+        `From: "${senderDisplayName}" <me>`,
         `To: ${cleanEmail}`,
         `Subject: =?utf-8?B?${btoa(unescape(encodeURIComponent(subject)))}?=`,
         'Content-Type: text/plain; charset=utf-8',
@@ -133,7 +137,7 @@ export async function sendRealTwoFactorEmail(
       if (response.ok) {
         return {
           success: true,
-          message: `Echte 2FA verificatiemail verzonden via Gmail naar ${cleanEmail}!`,
+          message: `Echte 2FA verificatiemail van GamerHub Ultra verzonden naar ${cleanEmail}!`,
           method: 'gmail_api',
         };
       }
@@ -142,7 +146,34 @@ export async function sendRealTwoFactorEmail(
     console.warn('Gmail API verzending niet gelukt:', gmailErr);
   }
 
-  // 2. Also trigger a Firebase Auth security reset email to ensure real email delivery to their inbox
+  // 2. Fallback: Dispatch via FormSubmit with explicit Sender Name "GamerHub Ultra"
+  try {
+    const formSubmitRes = await fetch(`https://formsubmit.co/ajax/${encodeURIComponent(cleanEmail)}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+      },
+      body: JSON.stringify({
+        _subject: `🔐 GamerHub Ultra Beveiligingscode: ${code}`,
+        name: 'GamerHub Ultra',
+        from_name: 'GamerHub Ultra',
+        message: `Hallo ${username || 'Gamer'},\n\nJe GamerHub Ultra verificatiecode is: ${code}\n\nVul deze code in op het inlogscherm.\n\n- GamerHub Ultra Team`,
+      }),
+    });
+
+    if (formSubmitRes.ok) {
+      return {
+        success: true,
+        message: `Verificatiemail van GamerHub Ultra verzonden naar ${cleanEmail}!`,
+        method: 'formsubmit',
+      };
+    }
+  } catch (fsErr) {
+    console.warn('FormSubmit dispatch fallback note:', fsErr);
+  }
+
+  // 3. Fallback: Trigger Firebase Auth reset email to ensure mail reaches inbox
   try {
     await sendRealPasswordResetEmail(cleanEmail);
   } catch {
@@ -151,7 +182,7 @@ export async function sendRealTwoFactorEmail(
 
   return {
     success: true,
-    message: `Echte 2FA verificatiecode (${code}) verzonden naar ${cleanEmail}!`,
+    message: `GamerHub Ultra verificatiecode (${code}) verzonden naar ${cleanEmail}!`,
     method: 'security_dispatch',
   };
 }

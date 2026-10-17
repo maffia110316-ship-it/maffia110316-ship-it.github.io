@@ -1,0 +1,23 @@
+{
+  "name": "GamerHub Ultra",
+  "short_name": "GamerHub",
+  "description": "Discord-stijl gaming netwerk met spraakkanalen, custom servers en voice calls.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#020617",
+  "theme_color": "#4f46e5",
+  "icons": [
+    {
+      "src": "https://api.dicebear.com/7.x/bottts/svg?seed=GamerHubIcon",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "https://api.dicebear.com/7.x/bottts/svg?seed=GamerHubIcon",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

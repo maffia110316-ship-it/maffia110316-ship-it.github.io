@@ -12,6 +12,8 @@ import {
   Users,
   Award,
   ExternalLink,
+  Download,
+  Smartphone,
 } from 'lucide-react';
 import { User } from '../types';
 import { getDocIdFromEmail } from '../services/userService';
@@ -32,7 +34,8 @@ export const BetaTesterModal: React.FC<BetaTesterModalProps> = ({
   onUpdateUser,
 }) => {
   const [copied, setCopied] = useState(false);
-  const [activeSubTab, setActiveSubTab] = useState<'invite' | 'perks' | 'feedback'>('invite');
+  const [activeSubTab, setActiveSubTab] = useState<'invite' | 'download' | 'perks' | 'feedback'>('invite');
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteSuccess, setInviteSuccess] = useState('');
   const [feedbackCategory, setFeedbackCategory] = useState('Voice Calls');
@@ -56,6 +59,35 @@ export const BetaTesterModal: React.FC<BetaTesterModalProps> = ({
   const handleShareWhatsApp = () => {
     const text = `Hey! Doe mee als Beta Tester voor GamerHub Ultra via mijn exclusieve link: ${shareUrl}`;
     window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`, '_blank');
+  };
+
+  // Listen for native install prompt (Android Chrome / Edge / Desktop)
+  React.useEffect(() => {
+    const handler = (e: any) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+    };
+    window.addEventListener('beforeinstallprompt', handler);
+    return () => window.removeEventListener('beforeinstallprompt', handler);
+  }, []);
+
+  const [installStatus, setInstallStatus] = useState<string>('');
+
+  const handleInstallApp = async () => {
+    if (deferredPrompt) {
+      try {
+        deferredPrompt.prompt();
+        const choice = await deferredPrompt.userChoice;
+        if (choice.outcome === 'accepted') {
+          setDeferredPrompt(null);
+          setInstallStatus('✅ Installatie gestart! GamerHub Ultra staat nu op je apparaat.');
+        }
+      } catch {
+        setInstallStatus('Tik in Chrome rechtsboven op ⋮ en kies "App installeren" of "Toevoegen aan startscherm".');
+      }
+    } else {
+      setInstallStatus('💡 Tip: Tik in Chrome rechtsboven op ⋮ en kies "App installeren", of in Safari op het Deel-icoon en kies "Zet op beginscherm".');
+    }
   };
 
   const handleShareEmail = () => {
@@ -166,6 +198,17 @@ export const BetaTesterModal: React.FC<BetaTesterModalProps> = ({
           >
             <Share2 className="w-4 h-4" />
             <span>Mensen Uitnodigen</span>
+          </button>
+          <button
+            onClick={() => setActiveSubTab('download')}
+            className={`pb-2.5 px-3 text-xs font-bold transition flex items-center space-x-2 border-b-2 ${
+              activeSubTab === 'download'
+                ? 'border-[#5865f2] text-white'
+                : 'border-transparent text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <Download className="w-4 h-4 text-emerald-400" />
+            <span>App Downloaden</span>
           </button>
           <button
             onClick={() => setActiveSubTab('perks')}
@@ -292,6 +335,73 @@ export const BetaTesterModal: React.FC<BetaTesterModalProps> = ({
                 <p className="text-slate-300 text-[11px] leading-relaxed">
                   Iedereen die jouw link opent krijgt direct toegang, start met 0 servers en vrienden (strikt geregistreerd), en kan samen met jou in servers gaan, spraakkanalen uittesten, voice calls voeren en schermen delen!
                 </p>
+              </div>
+            </div>
+          )}
+
+          {activeSubTab === 'download' && (
+            <div className="space-y-4">
+              {/* Native Install Card */}
+              <div className="p-5 bg-gradient-to-br from-emerald-950/40 via-slate-900 to-[#111214] border border-emerald-500/30 rounded-2xl space-y-3">
+                <div className="flex items-center space-x-3">
+                  <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-emerald-500 to-teal-500 flex items-center justify-center text-white shadow-lg shadow-emerald-500/30">
+                    <Smartphone className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-black text-white">GamerHub Ultra Downloaden & Installeren</h4>
+                    <p className="text-xs text-emerald-300">Installeer als zelfstandige app op Android, iPhone of PC</p>
+                  </div>
+                </div>
+
+                <p className="text-xs text-slate-300 leading-relaxed">
+                  GamerHub Ultra is een Progressive Web App (PWA) met Capacitor Android configuratie. Je kunt de app direct op je startscherm zetten met eigen app-icoon en pushnotificaties, zonder dat je naar de Play Store hoeft te gaan!
+                </p>
+
+                <button
+                  type="button"
+                  onClick={handleInstallApp}
+                  className="w-full py-3 px-4 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xs flex items-center justify-center space-x-2 transition shadow-lg shadow-emerald-600/30 active:scale-[0.98]"
+                >
+                  <Download className="w-4 h-4" />
+                  <span>📲 Direct op Telefoon / PC Installeren</span>
+                </button>
+
+                {installStatus && (
+                  <div className="p-3 bg-emerald-950/60 border border-emerald-500/40 rounded-xl text-xs text-emerald-200">
+                    {installStatus}
+                  </div>
+                )}
+              </div>
+
+              {/* Instructions for Android & iPhone */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                {/* Android Chrome */}
+                <div className="p-4 bg-[#111214] border border-[#2b2d31] rounded-2xl space-y-2">
+                  <span className="font-bold text-white flex items-center space-x-1.5 text-xs">
+                    <span>🤖</span>
+                    <span>Android (Google Chrome)</span>
+                  </span>
+                  <ol className="list-decimal list-inside space-y-1.5 text-slate-300 text-[11px] leading-relaxed">
+                    <li>Open deze link in <strong>Chrome</strong> op je telefoon.</li>
+                    <li>Tik rechtsboven op het menu (<strong>⋮</strong>).</li>
+                    <li>Tik op <strong>&apos;App installeren&apos;</strong> of <strong>&apos;Toevoegen aan startscherm&apos;</strong>.</li>
+                    <li>De app staat nu tussen je andere apps met het GamerHub icoon!</li>
+                  </ol>
+                </div>
+
+                {/* iPhone Safari */}
+                <div className="p-4 bg-[#111214] border border-[#2b2d31] rounded-2xl space-y-2">
+                  <span className="font-bold text-white flex items-center space-x-1.5 text-xs">
+                    <span>🍏</span>
+                    <span>iPhone / iPad (Safari)</span>
+                  </span>
+                  <ol className="list-decimal list-inside space-y-1.5 text-slate-300 text-[11px] leading-relaxed">
+                    <li>Open deze link in <strong>Safari</strong> op je iPhone.</li>
+                    <li>Tik onderaan op de <strong>Deel-knop</strong> (vierkant met pijl omhoog).</li>
+                    <li>Scroll omlaag en kies <strong>&apos;Zet op beginscherm&apos;</strong>.</li>
+                    <li>Tik op <strong>&apos;Voeg toe&apos;</strong> om de app te openen als echte app!</li>
+                  </ol>
+                </div>
               </div>
             </div>
           )}

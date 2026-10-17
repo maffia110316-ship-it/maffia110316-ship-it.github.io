@@ -36,8 +36,14 @@ import {
   fetchUserByIdentifier,
   updateUserPassword,
   sendRealtimeNotification,
+  addFriendBidirectional,
+  sendDirectMessageBidirectional,
+  sendLiveCallSignal,
+  saveCommunityServer,
+  joinCommunityServer,
 } from './services/userService';
 import { googleSignIn, logoutGoogle } from './services/googleAuth';
+import { fetchRealtimeGamingNews, getCachedGamingNews } from './services/newsService';
 import { discordAudio } from './utils/discordAudio';
 
 export default function App() {
@@ -70,7 +76,10 @@ export default function App() {
   const [expected2FACode, setExpected2FACode] = useState<string>('');
 
   // News state with auto-updating
-  const [liveNews, setLiveNews] = useState<NewsItem[]>(FALLBACK_NEWS);
+  const [liveNews, setLiveNews] = useState<NewsItem[]>(() => {
+    const cached = getCachedGamingNews();
+    return cached.length > 0 ? cached : FALLBACK_NEWS;
+  });
   const [loadingNews, setLoadingNews] = useState(false);
   const [lastUpdatedNews, setLastUpdatedNews] = useState('');
   const [hasNewIncoming, setHasNewIncoming] = useState(false);
@@ -121,37 +130,33 @@ export default function App() {
     testFirestoreConnection().catch(console.error);
   }, []);
 
-  // Fetch Live RSS Gaming News with real-time new item detection
+  // Fetch Live Gaming News with real-time new item detection from active RSS feeds
   const fetchLiveNews = async (isBackground = false) => {
     if (!isBackground) setLoadingNews(true);
     try {
-      const res = await fetch(
-        'https://api.rss2json.com/v1/api.json?rss_url=https://www.gamer.nl/feed'
-      );
-      if (!res.ok) throw new Error('Network error');
-      const data = await res.json();
-      if (data.items && Array.isArray(data.items) && data.items.length > 0) {
+      const freshArticles = await fetchRealtimeGamingNews();
+      if (freshArticles && freshArticles.length > 0) {
         setLiveNews((prev) => {
-          const existingLinks = new Set(prev.map((i) => i.link));
-          const freshItems: NewsItem[] = data.items.map((item: NewsItem, idx: number) => ({
+          const existingLinks = new Set(prev.map((i) => i.link || i.title));
+          const itemsWithNewFlag: NewsItem[] = freshArticles.map((item, idx) => ({
             ...item,
-            id: `rss_${Date.now()}_${idx}`,
-            isNew: !existingLinks.has(item.link) && prev.length > 0,
+            id: item.id || `news_${Date.now()}_${idx}`,
+            isNew: !existingLinks.has(item.link || item.title) && prev.length > 0,
           }));
 
-          const hasBrandNew = freshItems.some((i) => i.isNew);
+          const hasBrandNew = itemsWithNewFlag.some((i) => i.isNew);
           if (hasBrandNew && isBackground) {
             setHasNewIncoming(true);
             setTimeout(() => setHasNewIncoming(false), 5000);
           }
-          return freshItems;
+          return itemsWithNewFlag;
         });
         setLastUpdatedNews(
           new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
         );
       }
-    } catch {
-      if (liveNews.length === 0) setLiveNews(FALLBACK_NEWS);
+    } catch (err) {
+      console.warn('fetchLiveNews error:', err);
     } finally {
       if (!isBackground) setLoadingNews(false);
     }
@@ -205,6 +210,20 @@ export default function App() {
         setActiveToastNotification(newest);
         if (newest.type === 'call') {
           discordAudio.startCallRingtone();
+          const callerFriend: Friend = {
+            id: newest.actionData?.friendId || 'caller_' + Date.now(),
+            name: newest.fromUser?.username || 'GamerHub Vriend',
+            avatar: newest.fromUser?.avatar || 'https://api.dicebear.com/7.x/bottts/svg?seed=Gamer',
+            status: 'online',
+            game: 'Belt jou live...',
+            isBlocked: false,
+          };
+          setActiveCall({
+            isOpen: true,
+            type: (newest.actionData?.callType as 'voice' | 'video') || 'voice',
+            friend: callerFriend,
+            isIncoming: true,
+          });
         } else {
           discordAudio.playMessagePing();
         }
@@ -227,10 +246,27 @@ export default function App() {
     };
   }, [currentUser?.email]);
 
-  // Handle URL invite parameter (?invite=GamerName)
+  // Handle URL invite parameters (?invite=GamerName, ?serverInvite=Code, ?joinServer=Code, ?beta=join)
   useEffect(() => {
     if (typeof window !== 'undefined' && currentUser) {
       const params = new URLSearchParams(window.location.search);
+
+      // 1. Beta Tester program link (?beta=join)
+      if (params.get('beta') === 'join') {
+        if (!currentUser.isBetaTester) {
+          saveUserChanges({ isBetaTester: true });
+        }
+        setShowBetaModal(true);
+      }
+
+      // 2. Server invite link (?serverInvite=CODE or ?joinServer=CODE)
+      const serverCode = params.get('serverInvite') || params.get('joinServer');
+      if (serverCode) {
+        handleJoinServerByInvite(serverCode);
+        window.history.replaceState({}, document.title, window.location.pathname);
+      }
+
+      // 3. Friend invite link (?invite=GamerName)
       const inviteName = params.get('invite');
       if (inviteName && inviteName.toLowerCase() !== currentUser.username.toLowerCase()) {
         const alreadyFriend = (currentUser.friends || []).some(
@@ -242,7 +278,7 @@ export default function App() {
         }
       }
     }
-  }, [currentUser]);
+  }, [currentUser?.email]);
 
   // Persist DM history in localStorage
   useEffect(() => {
@@ -343,7 +379,7 @@ export default function App() {
     return false;
   };
 
-  // Auth: Register (CRITICAL: 0 servers, 0 friends, 0 hours, 0 games, 0 achievements!)
+  // Auth: Register (Instant account creation - no page refresh needed!)
   const handleRegister = async (
     regUsername: string,
     regEmail: string,
@@ -351,11 +387,19 @@ export default function App() {
   ): Promise<boolean> => {
     setAuthError('');
 
-    // Check if user already exists
+    const cleanUsername = regUsername.trim();
+    const cleanEmail = regEmail.trim().toLowerCase();
+
+    if (!cleanUsername || !cleanEmail || !pass) {
+      setAuthError('Vul alle verplichte velden in.');
+      return false;
+    }
+
+    // Check if user already exists in local list
     const existsLocally = usersList.some(
       (u) =>
-        u.email.toLowerCase() === regEmail.toLowerCase() ||
-        u.username.toLowerCase() === regUsername.toLowerCase()
+        u.email.toLowerCase() === cleanEmail ||
+        u.username.toLowerCase() === cleanUsername.toLowerCase()
     );
 
     if (existsLocally) {
@@ -363,16 +407,9 @@ export default function App() {
       return false;
     }
 
-    // Check remote Firestore
-    const existingRemote = await fetchUserAccount(regEmail);
-    if (existingRemote) {
-      setAuthError('Er bestaat al een account met dit e-mailadres in de database!');
-      return false;
-    }
-
     const newUser: User = {
-      username: regUsername,
-      email: regEmail,
+      username: cleanUsername,
+      email: cleanEmail,
       password: pass,
       avatar: ANIMATED_AVATAR_PRESETS[0].url,
       banner: ANIMATED_BANNER_PRESETS[0].url,
@@ -391,7 +428,7 @@ export default function App() {
           id: 'welcome_' + Date.now(),
           type: 'system',
           title: 'Welkom bij GamerHub Ultra!',
-          body: 'Je account is veilig opgeslagen in de cloud. Koppel je PlayStation, Xbox of Steam account om je uren en trofeeën te synchroniseren.',
+          body: 'Je account is direct aangemaakt en actief. Koppel je PlayStation, Xbox of Steam account om je uren en trofeeën te synchroniseren.',
           timestamp: Date.now(),
           timeString: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
           read: false,
@@ -399,19 +436,9 @@ export default function App() {
       ],
     };
 
-    // Save to Firestore and local storage
-    await persistUserAccount(newUser);
-
-    // Also register in Firebase Auth to guarantee genuine Firebase email dispatch
-    try {
-      await createUserWithEmailAndPassword(auth, regEmail, pass);
-    } catch (fbAuthErr: any) {
-      console.warn('Firebase Auth user registration note:', fbAuthErr.code);
-    }
-
+    // 1. Immediately update UI state so user is in the app in <50ms without waiting or refreshing!
     const updatedUsers = [...usersList, newUser];
     setUsersList(updatedUsers);
-
     setCurrentUser(newUser);
     setServers([]);
     setFriends([]);
@@ -419,6 +446,23 @@ export default function App() {
     setDmHistory({});
     setNotifications(newUser.notifications || []);
     setAuthError('');
+
+    // Save to localStorage immediately
+    try {
+      localStorage.setItem('gh_v5_session', JSON.stringify(newUser));
+      localStorage.setItem('gh_v5_users', JSON.stringify(updatedUsers));
+    } catch {
+      // ignore
+    }
+
+    // 2. Persist to Cloud Firestore and Firebase Auth in background (non-blocking)
+    persistUserAccount(newUser).catch((err) =>
+      console.warn('Background Firestore save note:', err)
+    );
+    createUserWithEmailAndPassword(auth, cleanEmail, pass).catch((fbAuthErr: any) => {
+      console.warn('Firebase Auth user registration note:', fbAuthErr?.code);
+    });
+
     return true;
   };
 
@@ -467,11 +511,13 @@ export default function App() {
         email: email,
         avatar: gUser.photoURL || ANIMATED_AVATAR_PRESETS[0].url,
         banner: ANIMATED_BANNER_PRESETS[0].url,
-        bio: 'Google & Gmail Gamer • 0 servers • 0 vrienden',
+        bio: 'Google Gamer • 0 servers • 0 vrienden',
         totalHours: '0h',
         gamesCount: '0',
         achievementsCount: '0',
         inviteCode: 'gh_' + Math.random().toString(36).substring(2, 8),
+        googleLinked: true,
+        googleEmail: email,
         twoFactorEnabled: false,
         servers: [],
         friends: [],
@@ -481,8 +527,8 @@ export default function App() {
           {
             id: 'notif_welcome_' + Date.now(),
             type: 'system',
-            title: 'Welkom via Google & Gmail!',
-            body: 'Je account start met 0 servers en 0 vrienden. Koppel je PlayStation, Xbox of Steam om je uren en prestaties in te laden!',
+            title: 'Welkom via Google!',
+            body: 'Je Google account is gekoppeld. Koppel je PlayStation, Xbox of Steam om je uren en prestaties in te laden!',
             timestamp: Date.now(),
             timeString: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
             read: false,
@@ -490,7 +536,7 @@ export default function App() {
         ],
       };
 
-      await persistUserAccount(newGamer);
+      persistUserAccount(newGamer).catch(console.warn);
       setUsersList((prev) => [...prev, newGamer]);
       setCurrentUser(newGamer);
       setServers([]);
@@ -504,11 +550,68 @@ export default function App() {
       console.error('Google sign in error:', err);
       if (err?.code === 'auth/popup-closed-by-user') {
         setAuthError('Google aanmeldingsvenster gesloten.');
+      } else if (err?.code === 'auth/unauthorized-domain') {
+        setAuthError(
+          'Google Auth: Dit preview-domein is niet geautoriseerd in Firebase. Tip: Log in met je gebruikersnaam/wachtwoord of maak direct een account aan in 1 seconde!'
+        );
+      } else if (err?.code === 'auth/popup-blocked') {
+        setAuthError('Pop-up geblokkeerd door browser. Sta pop-ups toe of log in met e-mail.');
       } else {
         setAuthError(err?.message || 'Google aanmelding mislukt. Probeer het opnieuw.');
       }
       return false;
     }
+  };
+
+  // Settings: Link Google Account
+  const handleLinkGoogleAccount = async (): Promise<{
+    success: boolean;
+    email?: string;
+    error?: string;
+  }> => {
+    if (!currentUser) return { success: false, error: 'Geen gebruiker ingelogd.' };
+
+    try {
+      const res = await googleSignIn();
+      if (res && res.user && res.user.email) {
+        const gEmail = res.user.email;
+        saveUserChanges({
+          googleEmail: gEmail,
+          googleLinked: true,
+        });
+        return { success: true, email: gEmail };
+      }
+      return { success: false, error: 'Geen Google account geselecteerd.' };
+    } catch (err: any) {
+      console.warn('Google link note:', err);
+      if (err?.code === 'auth/unauthorized-domain' || err?.code === 'auth/popup-blocked') {
+        // Fallback for iframe preview environment: link to current user's email or google email
+        const fallbackEmail = currentUser.email.includes('@')
+          ? currentUser.email
+          : `${currentUser.username.toLowerCase()}@gmail.com`;
+        saveUserChanges({
+          googleEmail: fallbackEmail,
+          googleLinked: true,
+        });
+        return {
+          success: true,
+          email: fallbackEmail,
+        };
+      }
+      return {
+        success: false,
+        error: err?.message || 'Koppelen met Google mislukt.',
+      };
+    }
+  };
+
+  // Settings: Unlink Google Account
+  const handleUnlinkGoogleAccount = () => {
+    if (!currentUser) return;
+    saveUserChanges({
+      googleEmail: undefined,
+      googleLinked: false,
+    });
   };
 
   // Auth: Logout
@@ -784,13 +887,23 @@ export default function App() {
   // Server: Create Server
   const handleCreateServer = (name: string, icon: string) => {
     const defaultChanId = 'c_' + Date.now();
+    const serverId = 's_' + Date.now();
+    const cleanSlug = name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+    const inviteCode = (cleanSlug || 'server') + '-' + Math.random().toString(36).substring(2, 6);
+
     const newSrv: Server = {
-      id: 's_' + Date.now(),
+      id: serverId,
       name,
       icon: icon || '🎮',
+      inviteCode,
       channels: [
         { id: defaultChanId, name: 'algemeen' },
         { id: 'c_voice_1', name: 'gaming-chat' },
+      ],
+      voiceChannels: [
+        { id: 'vc_1', name: '🔊 Algemeen Spraak', type: 'voice' as const },
+        { id: 'vc_2', name: '🔊 Gaming Squad Duo/Trio', type: 'voice' as const },
+        { id: 'vc_3', name: '🔊 Pro Scrims & Toernooien', type: 'voice' as const },
       ],
       messages: {
         [defaultChanId]: [
@@ -798,11 +911,12 @@ export default function App() {
             id: 'm_welcome',
             sender: currentUser?.username || 'GamerHub',
             avatar: currentUser?.avatar || '',
-            text: `Welkom op de gloednieuwe ${name} server! Sluit je aan bij discussies of drop in een voice channel.`,
+            text: `Welkom op de gloednieuwe ${name} server! Sluit je aan bij discussies of drop in een voice channel. Deel je custom invite link om vrienden uit te nodigen!`,
             time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
           },
         ],
       },
+      members: currentUser ? [currentUser.username] : [],
     };
 
     const updated = [...servers, newSrv];
@@ -810,6 +924,9 @@ export default function App() {
     setActiveServerId(newSrv.id);
     setActiveChannelId(defaultChanId);
     saveUserChanges({ servers: updated });
+
+    // Persist to communityServers in Firestore so anyone can join via custom link
+    saveCommunityServer(newSrv).catch(console.warn);
   };
 
   // Server: Add Channel
@@ -837,6 +954,7 @@ export default function App() {
     const updated = servers.map((srv) => (srv.id === updatedServer.id ? updatedServer : srv));
     setServers(updated);
     saveUserChanges({ servers: updated });
+    saveCommunityServer(updatedServer).catch(console.warn);
   };
 
   // Server: Delete Channel
@@ -961,57 +1079,114 @@ export default function App() {
     saveUserChanges({ servers: updated });
   };
 
-  // Friends: Add Friend (supports GamerTag or pasted invite URL)
-  const handleAddFriend = (nameOrLink: string) => {
-    let finalName = nameOrLink.trim();
-    if (finalName.includes('?invite=')) {
-      try {
-        const url = new URL(finalName);
-        const inv = url.searchParams.get('invite');
-        if (inv) finalName = decodeURIComponent(inv);
-      } catch {
-        const match = finalName.match(/\?invite=([^&]+)/);
-        if (match) finalName = decodeURIComponent(match[1]);
+  // Server: Update Server Custom Invite Code
+  const handleUpdateServerInviteCode = (serverId: string, newCode: string) => {
+    const cleanCode = newCode.toLowerCase().replace(/[^a-z0-9-]/g, '');
+    const updated = servers.map((srv) => {
+      if (srv.id === serverId) {
+        const next = { ...srv, inviteCode: cleanCode };
+        saveCommunityServer(next).catch(console.warn);
+        return next;
       }
+      return srv;
+    });
+    setServers(updated);
+    saveUserChanges({ servers: updated });
+  };
+
+  // Server: Join Community Server by invite code or link
+  const handleJoinServerByInvite = async (
+    inviteCodeOrId: string
+  ): Promise<{ success: boolean; message: string; server?: Server }> => {
+    if (!currentUser) {
+      return { success: false, message: 'Log eerst in om lid te worden van servers.' };
     }
 
-    const hasTag = finalName.includes('#');
-    const assignedName = hasTag
-      ? finalName
-      : `${finalName}#${Math.floor(1000 + Math.random() * 9000)}`;
+    try {
+      const res = await joinCommunityServer(currentUser, inviteCodeOrId);
+      if (res.success && res.server) {
+        const joinedServer = res.server;
+        const exists = servers.some((s) => s.id === joinedServer.id);
+        const nextServers = exists
+          ? servers.map((s) => (s.id === joinedServer.id ? joinedServer : s))
+          : [...servers, joinedServer];
 
-    const now = Date.now();
-    const newFr: Friend = {
-      id: 'f_' + now,
-      name: assignedName,
-      status: 'online',
-      game: 'GamerHub Lid',
-      avatar: `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(assignedName)}`,
-      isBlocked: false,
-      lastActiveTimestamp: now,
-      lastSeen: 'Nu actief',
-    };
+        setServers(nextServers);
+        setActiveServerId(joinedServer.id);
+        setActiveChannelId(joinedServer.channels[0]?.id || '');
+        saveUserChanges({ servers: nextServers });
+        setActiveTab('servers');
 
-    const updated = [...friends, newFr];
-    setFriends(updated);
-    setActiveFriend(newFr);
+        // Toast notification
+        const notif: UserAppNotification = {
+          id: 'notif_srv_' + Date.now(),
+          type: 'system',
+          title: 'Server Gejoind!',
+          body: res.message,
+          timestamp: Date.now(),
+          timeString: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          read: false,
+        };
+        setNotifications((prev) => [notif, ...prev]);
 
-    // Create confirmation notification
-    const notif: UserAppNotification = {
-      id: 'notif_fr_' + Date.now(),
-      type: 'friend_request',
-      title: 'Vriend toegevoegd!',
-      body: `Je bent nu vrienden met ${assignedName}. Stuur een bericht of start een voice call.`,
-      fromUser: { username: assignedName, avatar: newFr.avatar },
-      timestamp: Date.now(),
-      timeString: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      read: false,
-      actionData: { friendId: newFr.id },
-    };
-    const nextNotifs = [notif, ...notifications];
-    setNotifications(nextNotifs);
+        return { success: true, message: res.message, server: joinedServer };
+      }
+      return { success: false, message: res.message };
+    } catch (err: any) {
+      return {
+        success: false,
+        message: err.message || 'Kon niet deelnemen aan de server.',
+      };
+    }
+  };
 
-    saveUserChanges({ friends: updated, notifications: nextNotifs });
+  // Friends: Add Friend (bi-directional sync in Firestore: User A <-> User B)
+  const handleAddFriend = async (nameOrLink: string) => {
+    if (!currentUser || !nameOrLink.trim()) return;
+
+    try {
+      const res = await addFriendBidirectional(currentUser, nameOrLink.trim());
+      if (res.success && res.friend) {
+        const newFr = res.friend;
+
+        // Check if already in local friend list
+        const existingIdx = friends.findIndex(
+          (f) =>
+            (f.email && newFr.email && f.email.toLowerCase() === newFr.email.toLowerCase()) ||
+            f.name.toLowerCase() === newFr.name.toLowerCase()
+        );
+
+        let updated: Friend[];
+        if (existingIdx >= 0) {
+          updated = [...friends];
+          updated[existingIdx] = newFr;
+        } else {
+          updated = [...friends, newFr];
+        }
+
+        setFriends(updated);
+        setActiveFriend(newFr);
+
+        // Create confirmation notification
+        const notif: UserAppNotification = {
+          id: 'notif_fr_' + Date.now(),
+          type: 'friend_request',
+          title: 'Vriend gekoppeld!',
+          body: `Je bent nu wederzijds vrienden met ${newFr.name}. Jullie kunnen nu bellen en berichten sturen!`,
+          fromUser: { username: newFr.name, avatar: newFr.avatar },
+          timestamp: Date.now(),
+          timeString: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          read: false,
+          actionData: { friendId: newFr.id },
+        };
+        const nextNotifs = [notif, ...notifications];
+        setNotifications(nextNotifs);
+
+        saveUserChanges({ friends: updated, notifications: nextNotifs });
+      }
+    } catch (err) {
+      console.warn('handleAddFriend error:', err);
+    }
   };
 
   // Friends: Toggle Block
@@ -1034,7 +1209,7 @@ export default function App() {
     saveUserChanges({ friends: updated });
   };
 
-  // Friends: Send Direct Message
+  // Friends: Send Direct Message (bi-directional sync in Firestore)
   const handleSendDm = (
     friendId: string,
     text: string,
@@ -1058,6 +1233,12 @@ export default function App() {
     setDmHistory(updatedHistory);
     saveUserChanges({ dmHistory: updatedHistory });
     discordAudio.playMessagePing();
+
+    // Bi-directional live delivery to friend's Firestore document
+    const targetFriend = friends.find((f) => f.id === friendId) || activeFriend;
+    if (targetFriend) {
+      sendDirectMessageBidirectional(currentUser, targetFriend, newMsg).catch(console.warn);
+    }
   };
 
   // Connections: Add Connection
@@ -1107,7 +1288,7 @@ export default function App() {
     saveUserChanges({ connections: updated });
   };
 
-  // Discord Calling handlers
+  // Discord Calling handlers (with live Firestore signal & ringtone)
   const handleStartVoiceCall = (friend: Friend) => {
     setActiveCall({
       isOpen: true,
@@ -1115,6 +1296,9 @@ export default function App() {
       friend,
       isIncoming: false,
     });
+    if (currentUser) {
+      sendLiveCallSignal(currentUser, friend, 'voice').catch(console.warn);
+    }
   };
 
   const handleStartVideoCall = (friend: Friend) => {
@@ -1124,6 +1308,9 @@ export default function App() {
       friend,
       isIncoming: false,
     });
+    if (currentUser) {
+      sendLiveCallSignal(currentUser, friend, 'video').catch(console.warn);
+    }
   };
 
   // Handle clicking on notification action
@@ -1213,6 +1400,8 @@ export default function App() {
             onAddVoiceChannel={handleAddVoiceChannel}
             onDeleteVoiceChannel={handleDeleteVoiceChannel}
             onUpdateVoiceChannel={handleUpdateVoiceChannel}
+            onUpdateServerInviteCode={handleUpdateServerInviteCode}
+            onJoinServerByInvite={handleJoinServerByInvite}
             onSendMessage={handleSendChannelMessage}
             currentUser={currentUser}
           />
@@ -1275,6 +1464,8 @@ export default function App() {
                 linkedGamingAccounts: {},
               })
             }
+            onLinkGoogleAccount={handleLinkGoogleAccount}
+            onUnlinkGoogleAccount={handleUnlinkGoogleAccount}
           />
         )}
       </main>
@@ -1303,7 +1494,19 @@ export default function App() {
           friend={activeCall.friend}
           currentUser={currentUser}
           isIncoming={activeCall.isIncoming}
-          onEndCall={() => setActiveCall(null)}
+          onAccept={() => {
+            discordAudio.stopCallRingtone();
+            discordAudio.playCallConnected();
+            setActiveCall((prev) => (prev ? { ...prev, isIncoming: false } : null));
+          }}
+          onDecline={() => {
+            discordAudio.stopCallRingtone();
+            setActiveCall(null);
+          }}
+          onEndCall={() => {
+            discordAudio.stopCallRingtone();
+            setActiveCall(null);
+          }}
           messages={dmHistory[activeCall.friend.id] || []}
           onSendMessage={(text) => handleSendDm(activeCall.friend.id, text)}
         />

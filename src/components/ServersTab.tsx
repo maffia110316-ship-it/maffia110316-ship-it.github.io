@@ -35,6 +35,10 @@ import {
   Edit3,
   MoreVertical,
   MessageSquare,
+  Compass,
+  Link,
+  UserPlus,
+  Copy,
 } from 'lucide-react';
 import { Server, User, ChannelMessage, MessageAttachment, Channel } from '../types';
 import { ConfirmModal } from './ConfirmModal';
@@ -55,6 +59,8 @@ interface ServersTabProps {
   onAddVoiceChannel?: (serverId: string, channelName: string) => void;
   onDeleteVoiceChannel?: (serverId: string, channelId: string) => void;
   onUpdateVoiceChannel?: (serverId: string, channelId: string, newName: string) => void;
+  onJoinServerByInvite?: (code: string) => Promise<{ success: boolean; message: string }>;
+  onUpdateServerInviteCode?: (serverId: string, newInviteCode: string) => void;
   onSendMessage: (
     text: string,
     replyTo?: { id: string; sender: string; text: string },
@@ -78,6 +84,8 @@ export const ServersTab: React.FC<ServersTabProps> = ({
   onAddVoiceChannel,
   onDeleteVoiceChannel,
   onUpdateVoiceChannel,
+  onJoinServerByInvite,
+  onUpdateServerInviteCode,
   onSendMessage,
   currentUser,
 }) => {
@@ -101,6 +109,17 @@ export const ServersTab: React.FC<ServersTabProps> = ({
   const [newServerName, setNewServerName] = useState('');
   const [newServerIcon, setNewServerIcon] = useState('🎮');
   const [serverToDelete, setServerToDelete] = useState<Server | null>(null);
+
+  // Server Custom Invite Modal State
+  const [showServerInviteModal, setShowServerInviteModal] = useState(false);
+  const [customInviteCodeVal, setCustomInviteCodeVal] = useState('');
+  const [serverInviteCopied, setServerInviteCopied] = useState(false);
+
+  // Join Server by Code Modal State
+  const [showJoinServerModal, setShowJoinServerModal] = useState(false);
+  const [joinServerInputVal, setJoinServerInputVal] = useState('');
+  const [joinServerFeedback, setJoinServerFeedback] = useState('');
+  const [isJoiningServer, setIsJoiningServer] = useState(false);
 
   // Mobile navigation view: 'channels' | 'chat' | 'voice'
   const [mobileView, setMobileView] = useState<'channels' | 'chat' | 'voice'>('channels');
@@ -152,6 +171,52 @@ export const ServersTab: React.FC<ServersTabProps> = ({
       setEditServerIcon(currentServer.icon);
     }
   }, [currentServer, showEditServerModal]);
+
+  useEffect(() => {
+    if (currentServer) {
+      setCustomInviteCodeVal(currentServer.inviteCode || currentServer.id);
+    }
+  }, [currentServer?.id, currentServer?.inviteCode]);
+
+  const handleSaveCustomInviteCode = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!currentServer || !customInviteCodeVal.trim()) return;
+    const cleanCode = customInviteCodeVal
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, '-')
+      .replace(/[^a-z0-9-]/g, '');
+    if (onUpdateServerInviteCode) {
+      onUpdateServerInviteCode(currentServer.id, cleanCode);
+    } else if (onUpdateServer) {
+      onUpdateServer({ ...currentServer, inviteCode: cleanCode });
+    }
+  };
+
+  const handleJoinServerSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!joinServerInputVal.trim()) return;
+    setIsJoiningServer(true);
+    setJoinServerFeedback('');
+    try {
+      if (onJoinServerByInvite) {
+        let clean = joinServerInputVal.trim();
+        if (clean.includes('?serverInvite=')) {
+          const match = clean.match(/serverInvite=([^&]+)/);
+          if (match) clean = decodeURIComponent(match[1]);
+        }
+        const res = await onJoinServerByInvite(clean);
+        if (res.success) {
+          setShowJoinServerModal(false);
+          setJoinServerInputVal('');
+        } else {
+          setJoinServerFeedback(res.message);
+        }
+      }
+    } finally {
+      setIsJoiningServer(false);
+    }
+  };
 
   // Simulated Discord speaking wave in active voice channel
   useEffect(() => {
@@ -442,6 +507,19 @@ export const ServersTab: React.FC<ServersTabProps> = ({
         >
           <Plus className="w-6 h-6" />
         </button>
+
+        {/* Discord Join Server by Code / Explore Button */}
+        <button
+          onClick={() => {
+            setJoinServerFeedback('');
+            setJoinServerInputVal('');
+            setShowJoinServerModal(true);
+          }}
+          className="w-12 h-12 rounded-3xl hover:rounded-2xl bg-[#313338] hover:bg-[#5865f2] text-indigo-400 hover:text-white flex items-center justify-center transition-all duration-200 shadow-md"
+          title="Deelnemen aan Server van een Ander (Code / Link)"
+        >
+          <Compass className="w-6 h-6" />
+        </button>
       </div>
 
       {/* 2. DISCORD SERVER CHANNELS & USER BAR SIDEBAR */}
@@ -483,6 +561,28 @@ export const ServersTab: React.FC<ServersTabProps> = ({
               {/* Server Menu Dropdown */}
               {showServerMenu && (
                 <div className="absolute top-13 left-2 right-2 bg-[#111214] border border-[#232428] rounded-xl p-2 shadow-2xl z-40 space-y-1 animate-in fade-in duration-150">
+                  <button
+                    onClick={() => {
+                      setShowServerMenu(false);
+                      setShowServerInviteModal(true);
+                    }}
+                    className="w-full flex items-center space-x-2 px-3 py-2 text-xs font-semibold text-indigo-400 hover:text-white hover:bg-[#5865f2] rounded-lg transition text-left"
+                  >
+                    <Link className="w-4 h-4 text-indigo-400 group-hover:text-white" />
+                    <span>🔗 Server Uitnodigingslink & Custom Link</span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowServerMenu(false);
+                      setJoinServerFeedback('');
+                      setJoinServerInputVal('');
+                      setShowJoinServerModal(true);
+                    }}
+                    className="w-full flex items-center space-x-2 px-3 py-2 text-xs font-semibold text-emerald-400 hover:text-white hover:bg-emerald-600 rounded-lg transition text-left"
+                  >
+                    <Compass className="w-4 h-4 text-emerald-400 group-hover:text-white" />
+                    <span>🧭 Deelnemen aan Server van een Ander</span>
+                  </button>
                   <button
                     onClick={() => {
                       setShowServerMenu(false);
@@ -1842,6 +1942,205 @@ export const ServersTab: React.FC<ServersTabProps> = ({
         }}
         onCancel={() => setServerToDelete(null)}
       />
+
+      {/* MODAL SERVER UITNODIGINGSLINK & CUSTOM LINK */}
+      {showServerInviteModal && currentServer && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
+          <div className="w-full max-w-lg bg-[#2b2d31] border border-[#232428] rounded-3xl p-6 shadow-2xl space-y-5 animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between pb-3 border-b border-[#35373c]">
+              <div className="flex items-center space-x-3">
+                <div className="w-10 h-10 rounded-2xl bg-[#5865f2] flex items-center justify-center text-xl">
+                  {currentServer.icon}
+                </div>
+                <div>
+                  <h2 className="text-lg font-black text-white">
+                    {currentServer.name} - Server Uitnodigingslink
+                  </h2>
+                  <p className="text-xs text-[#949ba4]">
+                    Nodig vrienden en gamers uit voor jouw Discord server.
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowServerInviteModal(false)}
+                className="text-slate-400 hover:text-white p-1 rounded-lg"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Current Shareable Link */}
+            <div className="space-y-2">
+              <label className="block text-[11px] font-bold text-[#949ba4] uppercase tracking-wider">
+                Directe Server Uitnodigingslink
+              </label>
+              <div className="flex items-center space-x-2 bg-[#1e1f22] border border-[#232428] rounded-2xl p-2 pl-3">
+                <Link className="w-4 h-4 text-[#5865f2] shrink-0" />
+                <input
+                  type="text"
+                  readOnly
+                  value={`${typeof window !== 'undefined' ? window.location.origin : 'https://gamerhub.app'}/?serverInvite=${encodeURIComponent(currentServer.inviteCode || currentServer.id)}`}
+                  className="bg-transparent text-xs text-indigo-300 font-mono flex-1 outline-none truncate select-all"
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    const fullLink = `${typeof window !== 'undefined' ? window.location.origin : 'https://gamerhub.app'}/?serverInvite=${encodeURIComponent(currentServer.inviteCode || currentServer.id)}`;
+                    navigator.clipboard.writeText(fullLink);
+                    setServerInviteCopied(true);
+                    setTimeout(() => setServerInviteCopied(false), 2500);
+                  }}
+                  className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center space-x-1.5 shrink-0 ${
+                    serverInviteCopied
+                      ? 'bg-[#23a55a] text-white'
+                      : 'bg-[#5865f2] hover:bg-[#4752c4] text-white shadow-md'
+                  }`}
+                >
+                  {serverInviteCopied ? (
+                    <>
+                      <Check className="w-3.5 h-3.5" />
+                      <span>Gekopieerd!</span>
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="w-3.5 h-3.5" />
+                      <span>Kopiëren</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+
+            {/* Custom Link Configuration */}
+            <form onSubmit={handleSaveCustomInviteCode} className="space-y-3 bg-[#1e1f22] p-4 rounded-2xl border border-[#232428]">
+              <div className="flex items-center justify-between">
+                <label className="block text-[11px] font-bold text-white uppercase tracking-wider">
+                  Aangepaste (Custom) Server Code
+                </label>
+                <span className="text-[10px] text-emerald-400 font-semibold bg-emerald-950/60 border border-emerald-800/40 px-2 py-0.5 rounded-full">
+                  Uniek gekoppeld aan deze server
+                </span>
+              </div>
+              <p className="text-xs text-[#949ba4]">
+                Verander de uitnodigingscode naar een herkenbare clan- of squadnaam. Iedereen die deze code of link gebruikt, joint automatisch jouw server!
+              </p>
+              <div className="flex items-center space-x-2">
+                <span className="text-xs font-mono text-slate-500 bg-[#2b2d31] px-3 py-2.5 rounded-xl border border-[#35373c]">
+                  ?serverInvite=
+                </span>
+                <input
+                  type="text"
+                  required
+                  value={customInviteCodeVal}
+                  onChange={(e) => setCustomInviteCodeVal(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))}
+                  placeholder="bijv. squad-pro of apex-legends"
+                  className="flex-1 bg-[#2b2d31] border border-[#35373c] focus:border-[#5865f2] rounded-xl px-3 py-2.5 text-xs text-white font-mono outline-none"
+                />
+                <button
+                  type="submit"
+                  className="bg-[#23a55a] hover:bg-[#1f924e] text-white font-bold px-4 py-2.5 rounded-xl text-xs transition shadow-md shrink-0 flex items-center space-x-1"
+                >
+                  <Check className="w-3.5 h-3.5" />
+                  <span>Opslaan</span>
+                </button>
+              </div>
+            </form>
+
+            {/* Share Options */}
+            <div className="pt-2 flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  const fullLink = `${typeof window !== 'undefined' ? window.location.origin : 'https://gamerhub.app'}/?serverInvite=${encodeURIComponent(currentServer.inviteCode || currentServer.id)}`;
+                  const text = `Word lid van mijn server '${currentServer.name}' op GamerHub Ultra!\n${fullLink}`;
+                  window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`, '_blank');
+                }}
+                className="flex-1 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 font-bold py-2.5 px-3 rounded-xl text-xs transition flex items-center justify-center space-x-2"
+              >
+                <span>💬 Delen via WhatsApp</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const fullLink = `${typeof window !== 'undefined' ? window.location.origin : 'https://gamerhub.app'}/?serverInvite=${encodeURIComponent(currentServer.inviteCode || currentServer.id)}`;
+                  const subject = `Uitnodiging voor GamerHub Ultra Server: ${currentServer.name}`;
+                  const body = `Hoi!\n\nJe bent uitgenodigd om lid te worden van de Discord server '${currentServer.name}' op GamerHub Ultra.\n\nKlik op deze link om direct binnen te komen:\n${fullLink}\n\nTot op de server!`;
+                  window.open(`mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`);
+                }}
+                className="flex-1 bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 border border-indigo-500/30 font-bold py-2.5 px-3 rounded-xl text-xs transition flex items-center justify-center space-x-2"
+              >
+                <span>✉️ Delen via E-mail</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL DEELNEMEN AAN SERVER VAN EEN ANDER */}
+      {showJoinServerModal && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
+          <div className="w-full max-w-md bg-[#2b2d31] border border-[#232428] rounded-3xl p-6 shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between pb-2 border-b border-[#35373c]">
+              <div className="flex items-center space-x-2">
+                <Compass className="w-5 h-5 text-indigo-400" />
+                <h2 className="text-lg font-black text-white">
+                  Deelnemen aan Server van een Ander
+                </h2>
+              </div>
+              <button
+                onClick={() => setShowJoinServerModal(false)}
+                className="text-slate-400 hover:text-white p-1"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <p className="text-xs text-[#949ba4]">
+              Voer hier een server uitnodigingscode of link in van een vriend of community om lid te worden.
+            </p>
+
+            <form onSubmit={handleJoinServerSubmit} className="space-y-3">
+              <div>
+                <label className="block text-[10px] font-bold text-[#949ba4] uppercase mb-1">
+                  Uitnodigingslink of Code
+                </label>
+                <input
+                  type="text"
+                  required
+                  autoFocus
+                  value={joinServerInputVal}
+                  onChange={(e) => setJoinServerInputVal(e.target.value)}
+                  placeholder="bijv. squad-pro of https://gamerhub.app/?serverInvite=..."
+                  className="w-full bg-[#1e1f22] border border-[#232428] focus:border-[#5865f2] rounded-xl px-4 py-3 text-xs text-white outline-none"
+                />
+              </div>
+
+              {joinServerFeedback && (
+                <div className="p-3 rounded-xl bg-red-950/50 border border-red-800/50 text-red-300 text-xs font-semibold">
+                  {joinServerFeedback}
+                </div>
+              )}
+
+              <div className="flex space-x-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowJoinServerModal(false)}
+                  className="flex-1 bg-[#1e1f22] hover:bg-[#35373c] text-white font-bold py-3 rounded-xl text-xs transition"
+                >
+                  Annuleren
+                </button>
+                <button
+                  type="submit"
+                  disabled={isJoiningServer}
+                  className="flex-1 bg-[#5865f2] hover:bg-[#4752c4] text-white font-bold py-3 rounded-xl text-xs transition shadow-lg shadow-[#5865f2]/30 disabled:opacity-50"
+                >
+                  {isJoiningServer ? 'Verbinden...' : 'Deelnemen aan Server'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
